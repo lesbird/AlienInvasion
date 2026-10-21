@@ -4,6 +4,8 @@ A 3D FPS in C# (.NET 10) + OpenGL 3.3 (Silk.NET) + OpenAL. Fight down through 30
 of an overrun military bunker and destroy the alien portal at the bottom.
 Every texture, model, sound effect and music track is generated procedurally at runtime — no asset files.
 
+📖 **[Read the full game guide](GUIDE.md)**: controls, every weapon, upgrade, pickup, alien and boss, hazards, events and scoring.
+
 ## What's down there
 - **Aliens:** skitters, grunts, spitters, troopers, cloaked stalkers, wraiths, brutes, overseers, plus
   **bloaters** (charge in and burst in acid — shoot them at range), **burrowers** (tunnel under the floor
