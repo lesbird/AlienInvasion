@@ -46,6 +46,8 @@ public partial class Level
     public readonly List<Lockdown> Lockdowns = new();
     public bool[] Barrier;
     public bool PowerFailure, SelfDestruct;
+    // Wall vents and lockdown ambush rooms are switched off until they're reworked (they feel wrong in play).
+    public static bool VentsEnabled = false, LockdownsEnabled = false;
 
     bool Busy(int i) => Crate[i] || PropBlock[i] || PropAt[i] != null || DoorAt[i] >= 0 || SecretCell[i] || i == Idx(ExitX, ExitY) || i == Idx(StartX, StartY)
         || Items.Any(it => Idx(it.X, it.Y) == i);
@@ -58,17 +60,20 @@ public partial class Level
         SelfDestruct = Number == 28 || Number == 29;
 
         // ---- vents ----
-        double ventChance = Math.Min(0.6, 0.25 + Number * 0.015);
-        for (int ri = 0; ri < Rooms.Count; ri++)
+        if (VentsEnabled)
         {
-            var r = Rooms[ri];
-            if (r == StartRoom) continue;
-            int want = rng.NextDouble() < ventChance ? 1 + (rng.NextDouble() < 0.3 ? 1 : 0) : 0;
-            for (int k = 0; k < want; k++) TryAddVent(ri);
+            double ventChance = Math.Min(0.6, 0.25 + Number * 0.015);
+            for (int ri = 0; ri < Rooms.Count; ri++)
+            {
+                var r = Rooms[ri];
+                if (r == StartRoom) continue;
+                int want = rng.NextDouble() < ventChance ? 1 + (rng.NextDouble() < 0.3 ? 1 : 0) : 0;
+                for (int k = 0; k < want; k++) TryAddVent(ri);
+            }
         }
 
         // ---- lockdown ambush rooms ----
-        if (Number >= 3 && !IsFinal)
+        if (LockdownsEnabled && Number >= 3 && !IsFinal)
         {
             int count = Number >= 15 ? 2 : 1;
             var cands = Enumerable.Range(0, Rooms.Count).Where(i => Rooms[i] != StartRoom && Rooms[i] != ExitRoom && Rooms[i].W * Rooms[i].H >= 20).OrderBy(_ => rng.Next()).ToList();

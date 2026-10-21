@@ -85,6 +85,7 @@ public static class FeatureTest
             Check("ceiling crawler drops on the player", up && !e.OnCeiling && e.Pos.Y < 0.01f, $"y={e.Pos.Y:F2}");
         }
         // ---------------- vents ----------------
+        if (Level.VentsEnabled)
         {
             int spawned = 0, tested = 0;
             for (int seed = 0; seed < 10 && tested < 3; seed++)
@@ -104,6 +105,7 @@ public static class FeatureTest
             Check("aliens crawl out of vents", tested > 0 && spawned >= tested, $"{spawned} spawned from {tested} vents");
         }
         // ---------------- lockdown ----------------
+        if (Level.LockdownsEnabled)
         {
             World w = null; Player p = null; Lockdown ld = null;
             for (int seed = 0; seed < 20 && ld == null; seed++) { w = Make(9, 300 + seed, out p); ld = w.L.Lockdowns.FirstOrDefault(); }

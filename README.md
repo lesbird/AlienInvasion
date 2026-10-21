@@ -9,15 +9,13 @@ Every texture, model, sound effect and music track is generated procedurally at 
 ## What's down there
 - **Aliens:** skitters, grunts, spitters, troopers, cloaked stalkers, wraiths, brutes, overseers, plus
   **bloaters** (charge in and burst in acid — shoot them at range), **burrowers** (tunnel under the floor
-  and erupt beside you) and **ceiling crawlers** (drop on you from above). Aliens also crawl out of
-  **wall vents** — shoot a vent to seal it.
+  and erupt beside you) and **ceiling crawlers** (drop on you from above).
 - **Mini-bosses** guard the elevator on sublevels 5/20 (Hive Queen), 10/25 (Warlord) and 15 (The Mind).
   The elevator stays locked until the boss dies; each drops a guaranteed weapon or upgrade.
 - **Secret stashes** hold health, armor, ammo and goodies: damage amplifier, ammo backpack, night-vision
   and x-ray goggles, and **weapon upgrades** (one per weapon: magnum rounds, cluster grenades, twin rockets…).
 - **Hazards:** red explosive barrels, steam vents, live cables, acid pools (deep levels).
-- **Events:** lockdown ambush rooms (energy barriers + waves from the vents), power failures,
-  and a self-destruct countdown on sublevels 28–29 once you hold every keycard.
+- **Events:** power failures and a self-destruct countdown on sublevels 28–29 once you hold every keycard.
 - Each sublevel ends with a score breakdown and an S–D rank; best scores are kept in `scores.json`
   next to the save file.
 
@@ -54,7 +52,7 @@ wheel/Q/RMB cycle weapon · F flashlight · N night vision · X x-ray goggles ·
     --yaw RADIANS    turn the starting view (for screenshots)
     --musictest DIR  render sample music tracks to WAV files
     --barreltest     set off barrels next to an alien/the player and shoot one; prints the results
-    --featuretest    headless checks of aliens, vents, lockdowns, hazards, events, bosses, upgrades, gore, scoring
+    --featuretest    headless checks of aliens, hazards, events, bosses, upgrades, gore, scoring
     --shot FILE.png [--shotframe N] [--shotmode play|map|gallery|secret|secretopen|beacon|beaconcrowd|beaconflash|behindwall|barrels|bossgallery|lockdown|vent|hazard|blackout|complete]   screenshot and exit
 
 ## Layout

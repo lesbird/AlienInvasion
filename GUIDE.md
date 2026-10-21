@@ -231,8 +231,7 @@ it rises with depth.
 | **Brute** | 16 | 500 | Smash (35), fire orb (30, splash) | Massive armoured beast with a heavy melee hit and explosive orbs. |
 | **Overseer** | 23 | 900 | Triple orb spread (3 × 16) | Giant floating brain-eye with dangling tentacles. |
 
-Aliens also **crawl out of wall vents** (see [Hazards](#hazards)) and pour from the portal on the
-final level.
+Aliens also pour from the portal on the final level.
 
 ---
 
@@ -292,7 +291,6 @@ through the wall.
 | Hazard | Where | Effect |
 |---|---|---|
 | **Red explosive barrels** | Groups of 1–3, mostly in storage areas | 30 health: two pistol shots or one shotgun blast. Damaged barrels leak flame, then explode after a split-second flash: **100 damage in a 5 m radius** to you *and* aliens, and they set off nearby barrels in a chain. Any explosion or alien projectile can set them off. |
-| **Wall vents** | Many rooms | Aliens crawl out when you're nearby. Glowing eyes sometimes stare out from behind the slats. **Shoot or blast a vent** (60 health) to seal it for good. |
 | **Steam vents** | Floor grates from sublevel 2 | Blast a scalding column of steam every 5.5 s for 1.6 s. Don't stand on them when they hiss. |
 | **Live cables** | Hanging from walls from sublevel 4 | Spark and flicker blue; touching one gives a 14-damage shock and throws you back. |
 | **Acid pools** | Glowing green puddles from sublevel 16 | Burn you while you stand in them. |
@@ -301,11 +299,6 @@ through the wall.
 
 ## Level events
 
-- **Lockdown ambush (from sublevel 3):** one room per level (two from sublevel 15) is a trap. Step
-  inside and **red energy barriers seal every entrance**, a klaxon wails, and a wave of aliens
-  (5 + sublevel ÷ 3 of them) **crawls out of the room's vents**. Wrecking the vents makes the rest
-  teleport in instead. Kill them all to lift the barriers and collect a **medkit and ammo**. If the
-  last few won't come out, they retreat after 20 s and the lockdown ends anyway.
 - **Power failure (about 40% of sublevels 6–27):** partway through the level the generators die.
   Lights flicker out, only pulsing **red emergency lamps** remain, and it stays dark for 35–55 s
   until the power stutters back. Night vision and the flashlight are your friends.
@@ -360,7 +353,7 @@ the summary flags a **NEW BEST!**
   - positional sound
   - a procedurally generated music track for every sublevel
 - **HUD:** health, armor, ammo, weapon slots, keycards, kills, time, secrets, goggle charge,
-  damage-amp timer, boss health, lockdown and self-destruct banners, plus the automap.
+  damage-amp timer, boss health and self-destruct banners, plus the automap.
 
 ---
 
@@ -372,8 +365,6 @@ the summary flags a **NEW BEST!**
   Keep your own distance.
 - **Kill Bloaters early** and at range. Never let one reach you, and don't shoot one next to you.
 - **Look up** when entering rooms from sublevel 4 on, and watch for moving mounds of earth from 8.
-- **Shoot vents** as soon as you see them in rooms you'll be fighting in, especially before a
-  lockdown springs.
 - **Save the knife for sneak attacks.** It deals 2.5× damage to unaware aliens.
 - **Dodge the Warlord's charge** sideways and let him hit the wall, then unload while he's dazed.
 - **Save goggle charge**: switch night vision on for power failures and dark hive levels, and use
