@@ -1,0 +1,137 @@
+# Builds self-contained Windows, Linux and macOS versions and publishes them as a GitHub Release.
+# Runs when a version tag (v1.2.3) is pushed, or manually from the Actions tab with a tag name.
+name: Build & Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create (e.g. v1.0.0)"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: ubuntu-latest
+            name: Windows-x64
+          - rid: linux-x64
+            os: ubuntu-latest
+            name: Linux-x64
+          # macOS builds run on a Mac so the app bundle can be code-signed (Apple Silicon refuses unsigned binaries)
+          - rid: osx-arm64
+            os: macos-latest
+            name: macOS-AppleSilicon
+          - rid: osx-x64
+            os: macos-latest
+            name: macOS-Intel
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish
+        run: >
+          dotnet publish AlienInvasion.csproj -c Release -r ${{ matrix.rid }} --self-contained true
+          -p:DebugType=none -p:Version=${TAG#v} -o publish
+
+      - name: Package (Windows)
+        if: startsWith(matrix.rid, 'win')
+        run: |
+          mkdir -p dist
+          mv publish AlienInvasion
+          cp README.md GUIDE.md AlienInvasion/
+          zip -qr "dist/AlienInvasion-${TAG}-${{ matrix.name }}.zip" AlienInvasion
+
+      - name: Package (Linux)
+        if: startsWith(matrix.rid, 'linux')
+        run: |
+          mkdir -p dist
+          mv publish AlienInvasion
+          cp README.md GUIDE.md AlienInvasion/
+          chmod +x AlienInvasion/AlienInvasion
+          tar -czf "dist/AlienInvasion-${TAG}-${{ matrix.name }}.tar.gz" AlienInvasion
+
+      - name: Package (macOS app bundle)
+        if: startsWith(matrix.rid, 'osx')
+        run: |
+          APP="Alien Invasion.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" dist
+          cp -R publish/. "$APP/Contents/MacOS/"
+          chmod +x "$APP/Contents/MacOS/AlienInvasion"
+          cat > "$APP/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>Alien Invasion</string>
+            <key>CFBundleDisplayName</key><string>Alien Invasion</string>
+            <key>CFBundleIdentifier</key><string>com.lesbird.alieninvasion</string>
+            <key>CFBundleVersion</key><string>${TAG#v}</string>
+            <key>CFBundleShortVersionString</key><string>${TAG#v}</string>
+            <key>CFBundleExecutable</key><string>AlienInvasion</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          EOF
+          # ad-hoc signature (no Apple developer account): required for Apple Silicon to launch it
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep "$APP"
+          ditto -c -k --keepParent "$APP" "dist/AlienInvasion-${TAG}-${{ matrix.name }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/AlienInvasion-*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Alien Invasion ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: dist/*
+          body: |
+            ## Downloads
+            | Platform | File |
+            |---|---|
+            | Windows 10/11 (64-bit) | `AlienInvasion-${{ env.TAG }}-Windows-x64.zip` |
+            | macOS, Apple Silicon (M1–M4) | `AlienInvasion-${{ env.TAG }}-macOS-AppleSilicon.zip` |
+            | macOS, Intel | `AlienInvasion-${{ env.TAG }}-macOS-Intel.zip` |
+            | Linux (64-bit) | `AlienInvasion-${{ env.TAG }}-Linux-x64.tar.gz` |
+
+            No .NET install is needed. Everything is bundled.
+
+            - **Windows:** unzip and run `AlienInvasion.exe`. If SmartScreen warns about an unknown publisher, click *More info → Run anyway*.
+            - **macOS:** unzip and move *Alien Invasion* to Applications. The app isn't notarized, so the first time, right-click it and choose **Open**, or run `xattr -dr com.apple.quarantine "/Applications/Alien Invasion.app"`.
+            - **Linux:** `tar -xzf AlienInvasion-*.tar.gz && ./AlienInvasion/AlienInvasion` (needs OpenGL 3.3 drivers and X11 or XWayland).
+
+            See [GUIDE.md](https://github.com/${{ github.repository }}/blob/main/GUIDE.md) for controls, weapons, enemies and everything else.

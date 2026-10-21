@@ -21,7 +21,18 @@ Every texture, model, sound effect and music track is generated procedurally at 
 - Each sublevel ends with a score breakdown and an S–D rank; best scores are kept in `scores.json`
   next to the save file.
 
-## Run
+## Download
+Ready-to-play builds for **Windows, macOS (Apple Silicon and Intel) and Linux** are on the
+[Releases page](../../releases/latest). No .NET install is needed.
+- **Windows:** unzip and run `AlienInvasion.exe`.
+- **macOS:** unzip and move *Alien Invasion* to Applications. The first time, right-click it and choose **Open**
+  (it isn't notarized), or run `xattr -dr com.apple.quarantine "/Applications/Alien Invasion.app"`.
+- **Linux:** `tar -xzf AlienInvasion-*.tar.gz && ./AlienInvasion/AlienInvasion`.
+
+New releases are built by GitHub Actions (`.github/workflows/release.yml`) whenever a version tag
+is pushed, e.g. `git tag v1.1.0 && git push origin v1.1.0`.
+
+## Run from source
     ./run.sh                  # builds if needed, then launches
     ./run.sh --level 10 --god # any flags below are passed through
 
