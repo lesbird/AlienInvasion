@@ -50,6 +50,9 @@ generated procedurally when the game runs. No two playthroughs are the same.
 | **F11** | Fullscreen |
 | **Esc** | Pause |
 
+The same list, grouped into movement, combat, gear and system keys with a few quick tips, is on
+the **Controls** screen of the title menu.
+
 The game autosaves at the start of every sublevel; **Continue** on the title screen resumes there.
 If you die, you restart the current sublevel with the health, armor, weapons and ammo you
 entered it with.
@@ -201,8 +204,11 @@ chance of dropping their weapon: Spitter → Bio-Acid Launcher (22%), Xeno Troop
   stash of **sublevel 2**.
 - **X-Ray Goggles (X):** the world turns cold blue, and within about 12 cells you can see **aliens
   through walls** (orange silhouettes) and **items and keycards through walls** (gold glints).
-  That includes items hidden in secret rooms and Burrowers underground. Guaranteed in the first
-  secret stash of **sublevel 5**.
+  That includes items hidden in secret rooms and Burrowers underground. The walls in the way turn
+  into a faint blueprint grid swept by a sonar ping, and each wall hiding an alien or keycard
+  shows a glowing lens where it is cut through. Guaranteed in the first secret stash of
+  **sublevel 5**.
+- Switching either pair of goggles on or off plays a short power-up wipe across the screen.
 - **Charge:** one pair of goggles at a time. Each runs on its own battery: a full charge is
   **15 minutes of use**, and it only drains while switched on. Batteries (from sublevel 3, one or
   two per level plus most secret stashes) add 7.5 minutes. The bottom-left meters show each

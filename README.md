@@ -16,6 +16,10 @@ Every texture, model, sound effect and music track is generated procedurally at 
   and x-ray goggles, and **weapon upgrades** (one per weapon: magnum rounds, cluster grenades, twin rockets…).
 - **Hazards:** red explosive barrels, steam vents, live cables, acid pools (deep levels).
 - **Events:** power failures and a self-destruct countdown on sublevels 28–29 once you hold every keycard.
+- **Looks:** HDR bloom, ambient occlusion, light shafts with drifting dust, a colour grade per area,
+  explosion shockwaves and heat haze, hive growth spreading over the deep levels, red damage
+  edges and a heartbeat pulse at low health, an x-ray blueprint view of the walls you see through,
+  and ragdoll deaths that throw aliens along the killing blow.
 - Each sublevel ends with a score breakdown and an S–D rank; best scores are kept in `scores.json`
   next to the save file.
 
@@ -28,7 +32,8 @@ Ready-to-play builds for **Windows, macOS (Apple Silicon and Intel) and Linux** 
 - **Linux:** `tar -xzf AlienInvasion-*.tar.gz && ./AlienInvasion/AlienInvasion`.
 
 New releases are built by GitHub Actions (`.github/workflows/release.yml`) whenever a version tag
-is pushed, e.g. `git tag v1.1.0 && git push origin v1.1.0`.
+is pushed, e.g. `git tag v1.2.0 && git push origin v1.2.0`. If no run appears under Actions, start it
+by hand: `gh workflow run release.yml --ref main -f tag=v1.2.0`.
 
 ## Run from source
     ./run.sh                  # builds if needed, then launches
@@ -67,6 +72,7 @@ wheel/Q/RMB cycle weapon · F flashlight · N night vision · X x-ray goggles ·
   hazards, power failure, self-destruct), `WorldFx.cs` (decals, gibs, hit markers, kill slow-mo)
 - `Game/LevelDecor.cs` / `LevelHazards.cs` — props, secret rooms, explosive barrels, vents, hazards, lockdown rooms
 - `Game/Scoring.cs` — end-of-level score, rank and best scores
+- `Game/Ragdoll.cs` — Verlet ragdolls built from each alien's limbs at the moment of death
 - `Game/Renderer.cs` / `Models.cs` — lighting (32 dynamic point lights + flashlight + fog, rotating alarm
   beacons from sublevel 8, cube-map enemy shadows from up to 4 nearby lights, flashlight spot shadows, blinking console LEDs, post-processing in `Engine/PostFx.cs`: bloom, SSAO, shockwave/heat distortion, colour grading, damage effects), alien models,
   weapon view models, particles
