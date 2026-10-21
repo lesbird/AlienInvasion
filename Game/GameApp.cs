@@ -26,7 +26,7 @@ public class Options
     public int ShotFrame = 90;
     public string ShotMode = "play";
     public int Seed = -1;
-    public bool NoShadows, NoBloom;
+    public bool NoShadows, NoBloom, NoAO;
     public string Goggles = "";
     public float YawOffset;
     public float SmokeSeconds;
@@ -121,7 +121,7 @@ public class GameApp
         };
         mouse.Scroll += (_, w) => scroll += w.Y;
 
-        renderer = new Renderer(gl) { Shadows = !opt.NoShadows, BloomOn = !opt.NoBloom };
+        renderer = new Renderer(gl) { Shadows = !opt.NoShadows, BloomOn = !opt.NoBloom, AO = !opt.NoAO };
         Scoring.ReadOnly = opt.ShotFile != null || opt.SmokeSeconds > 0;
         ui = new Renderer2D(gl);
         snd.Init();
@@ -141,12 +141,23 @@ public class GameApp
             if (opt.ShotMode == "behindwall") SetupBehindWall();
             if (opt.ShotMode == "barrels") SetupBarrelView();
             if (opt.ShotMode is "lockdown" or "complete" or "hazard" or "vent") SetupFeatureView(opt.ShotMode);
+            if (opt.ShotMode == "ragdoll")
+            {
+                // debug: line up the aliens and drop them all, knocked back away from the camera
+                SetupGallery();
+                world.God = true;
+                player.Pos.Z -= 15;
+                foreach (var e in world.Enemies) { e.Hp = 1; world.DamageEnemy(e, 5, Vector3.Normalize(new Vector3(0.3f, 0, -1))); }
+            }
+            if (opt.ShotMode == "hurt") { world.God = true; player.Health = 16; player.HurtFlash = 0.7f; }
+            if (opt.ShotMode == "blast") { world.God = true; world.Explosion(player.Eye + player.Forward * 7 - Vector3.UnitY, 5, 0, false, 0); }
             if (opt.ShotMode == "blackout") { world.ForcePowerFailure(); world.God = true; }
             player.Yaw += opt.YawOffset;
             if (opt.Goggles == "nv") { player.HasNV = true; player.NVCharge = Player.GoggleMax; player.NVOn = true; }
             if (opt.Goggles == "xray") { player.HasXRay = true; player.XRayCharge = Player.GoggleMax; player.XRayOn = true; }
             if (opt.Weapon >= 0) { player.Has[opt.Weapon] = true; player.Weapon = player.Pending = opt.Weapon; player.Ammo[Math.Max(0, Weapons.All[opt.Weapon].Ammo)] = 50; }
         }
+        else if (opt.ShotMode == "controls") state = GameState.Controls;
     }
 
     // =====================================================================  flow
@@ -692,41 +703,117 @@ public class GameApp
 
     static Vector4 C(float r, float g, float b, float a = 1) => new(r, g, b, a);
 
+    static readonly (string Head, (string Key, string Action)[] Rows)[][] ControlColumns =
+    {
+        new[]
+        {
+            ("MOVEMENT", new[] { ("WASD / ARROWS", "MOVE / TURN"), ("MOUSE", "LOOK"), ("SHIFT", "SPRINT"), ("E / SPACE", "USE / SEARCH WALLS") }),
+            ("COMBAT", new[] { ("LMB / CTRL", "FIRE"), ("1 - 0", "SELECT WEAPON"), ("WHEEL / Q / RMB", "CYCLE WEAPON") }),
+        },
+        new[]
+        {
+            ("GEAR", new[] { ("F", "FLASHLIGHT"), ("N", "NIGHT VISION"), ("X", "X-RAY GOGGLES"), ("TAB", "AUTOMAP") }),
+            ("SYSTEM", new[] { ("B", "BLOOM ON/OFF"), ("M", "MUSIC ON/OFF"), ("F11", "FULLSCREEN"), ("ESC", "PAUSE") }),
+        },
+    };
+
+    static readonly string[] ControlTips =
+    {
+        "FIND COLORED KEYCARDS TO OPEN SECURITY DOORS.",
+        "SOME WALL PANELS HIDE SECRET STASHES - PRESS E.",
+        "GOGGLES RUN ON BATTERIES - PICK UP SPARES.",
+        "REACH THE ELEVATOR TO DESCEND. 30 SUBLEVELS.",
+        "DESTROY THE ALIEN PORTAL AT THE BOTTOM.",
+    };
+
+    /// <summary>Controls screen: a framed panel with two aligned key/action columns and the mission briefing.</summary>
+    void DrawControls(int W, int H, float s, float pulse)
+    {
+        float cx = W / 2f;
+        float t = MathF.Min(s, W / 1150f);   // text scale, shrunk on narrow windows
+        ui.Text("ALIEN INVASION", cx, 34 * s, 7 * s, C(0.4f * pulse, 1f * pulse, 0.5f * pulse), 1);
+        ui.Text("OPERATION DEEP DESCENT", cx, 34 * s + 66 * s, 2.6f * s, C(0.9f, 0.85f, 0.6f), 1);
+
+        float ts = 2.2f * t, hs = 2.2f * t, row = 23 * s, gap = 24 * t, colGap = 80 * t, pad = 36 * t;
+        // measure each column: right-aligned keys, left-aligned actions
+        var keyW = new float[2]; var actW = new float[2]; var rows = new int[2];
+        for (int c = 0; c < 2; c++)
+            foreach (var (head, list) in ControlColumns[c])
+            {
+                rows[c] += list.Length + 2;
+                foreach (var (k, a) in list)
+                {
+                    keyW[c] = MathF.Max(keyW[c], Renderer2D.TextWidth(k, ts));
+                    actW[c] = MathF.Max(actW[c], Renderer2D.TextWidth(a, ts));
+                }
+            }
+        float tipW = ControlTips.Max(l => Renderer2D.TextWidth(l, ts));
+        float colsW = keyW[0] + gap + actW[0] + colGap + keyW[1] + gap + actW[1];
+        float panelW = MathF.Max(colsW, tipW) + pad * 2;
+        float top = 128 * s, bindH = (Math.Max(rows[0], rows[1]) - 1) * row;
+        float divY = top + 26 * s + bindH + 6 * s;
+        float panelH = divY - top + 22 * s + ControlTips.Length * row + 14 * s;
+        float px = cx - panelW / 2;
+
+        var accent = C(0.4f, 1f, 0.5f);
+        ui.Rect(px, top, panelW, panelH, C(0.02f, 0.06f, 0.04f, 0.78f));
+        ui.RectOutline(px, top, panelW, panelH, MathF.Max(1, 1.5f * s), C(0.4f, 1f, 0.5f, 0.55f));
+
+        float x0 = cx - colsW / 2;
+        for (int c = 0; c < 2; c++)
+        {
+            float split = x0 + keyW[c];              // keys end here, actions start after the gap
+            float y = top + 26 * s;
+            foreach (var (head, list) in ControlColumns[c])
+            {
+                ui.Text(head, x0, y, hs, accent);
+                ui.Rect(x0, y + 8 * hs + 4 * s, keyW[c] + gap + actW[c], MathF.Max(1, s), C(0.4f, 1f, 0.5f, 0.3f));
+                y += row * 1.25f;
+                foreach (var (k, a) in list)
+                {
+                    ui.Text(k, split, y, ts, C(1f, 0.9f, 0.55f), 2);
+                    ui.Text(a, split + gap, y, ts, C(0.88f, 0.92f, 0.88f));
+                    y += row;
+                }
+                y += row * 0.75f;
+            }
+            x0 = split + gap + actW[c] + colGap;
+        }
+
+        ui.Rect(px + pad, divY, panelW - pad * 2, MathF.Max(1, s), C(0.4f, 1f, 0.5f, 0.3f));
+        float ty = divY + 20 * s;
+        foreach (var line in ControlTips)
+        {
+            ui.Text(line, cx, ty, ts, C(0.75f, 0.85f, 0.78f), 1);
+            ty += row;
+        }
+
+        ui.Text("PRESS ENTER TO GO BACK", cx, H - 52 * s, 2.5f * s, C(1, 1, 0.5f, 0.6f + 0.4f * MathF.Sin(time * 4)), 1);
+        ui.End();
+    }
+
     void DrawTitle(int W, int H)
     {
         float s = H / 720f;
         ui.Begin(W, H);
         ui.Rect(0, 0, W, H, C(0, 0, 0, 0.55f));
         float pulse = 0.85f + 0.15f * MathF.Sin(time * 2);
-        ui.Text("ALIEN INVASION", W / 2f, H * 0.16f, 11 * s, C(0.4f * pulse, 1f * pulse, 0.5f * pulse), 1);
-        ui.Text("OPERATION DEEP DESCENT", W / 2f, H * 0.16f + 95 * s, 3.5f * s, C(0.9f, 0.85f, 0.6f), 1);
         if (state == GameState.Controls)
         {
-            string[] lines =
-            {
-                "WASD / ARROWS ........ MOVE / TURN", "MOUSE ................ LOOK", "LEFT CLICK / CTRL .... FIRE",
-                "SHIFT ................ SPRINT", "E / SPACE ............ USE / SEARCH WALLS", "1-0 .................. SELECT WEAPON",
-                "WHEEL / Q / RCLICK ... CYCLE WEAPON", "F .................... FLASHLIGHT", "N / X ................ NIGHT VISION / X-RAY", "TAB .................. AUTOMAP", "B .................... BLOOM ON/OFF",
-                "M .................... MUSIC ON/OFF", "F11 .................. FULLSCREEN", "ESC .................. PAUSE",
-                "", "FIND COLORED KEYCARDS TO OPEN SECURITY DOORS.", "SOME WALL PANELS HIDE SECRET STASHES - PRESS E.", "GOGGLES RUN ON BATTERIES - PICK UP SPARES.", "REACH THE ELEVATOR TO DESCEND. 30 SUBLEVELS.",
-                "DESTROY THE ALIEN PORTAL AT THE BOTTOM."
-            };
-            for (int i = 0; i < lines.Length; i++)
-                ui.Text(lines[i], W / 2f, H * 0.315f + i * 20.5f * s, 2.3f * s, C(0.85f, 0.9f, 0.85f), 1);
-            ui.Text("PRESS ENTER TO GO BACK", W / 2f, H * 0.92f, 2.5f * s, C(1, 1, 0.5f, 0.6f + 0.4f * MathF.Sin(time * 4)), 1);
+            DrawControls(W, H, s, pulse);
+            return;
         }
-        else
+        ui.Text("ALIEN INVASION", W / 2f, H * 0.16f, 11 * s, C(0.4f * pulse, 1f * pulse, 0.5f * pulse), 1);
+        ui.Text("OPERATION DEEP DESCENT", W / 2f, H * 0.16f + 95 * s, 3.5f * s, C(0.9f, 0.85f, 0.6f), 1);
+        var items = TitleItems();
+        for (int i = 0; i < items.Count; i++)
         {
-            var items = TitleItems();
-            for (int i = 0; i < items.Count; i++)
-            {
-                bool sel = i == menuIdx;
-                float y = H * 0.5f + i * 48 * s;
-                if (sel) ui.Rect(W / 2f - 260 * s, y - 10 * s, 520 * s, 44 * s, C(0.2f, 0.8f, 0.3f, 0.18f));
-                ui.Text((sel ? "> " : "") + items[i] + (sel ? " <" : ""), W / 2f, y, 4 * s, sel ? C(0.5f, 1f, 0.5f) : C(0.75f, 0.75f, 0.75f), 1);
-            }
-            ui.Text("ALL GRAPHICS, SOUND AND MUSIC PROCEDURALLY GENERATED", W / 2f, H - 40 * s, 2 * s, C(0.6f, 0.6f, 0.6f, 0.7f), 1);
+            bool sel = i == menuIdx;
+            float y = H * 0.5f + i * 48 * s;
+            if (sel) ui.Rect(W / 2f - 260 * s, y - 10 * s, 520 * s, 44 * s, C(0.2f, 0.8f, 0.3f, 0.18f));
+            ui.Text((sel ? "> " : "") + items[i] + (sel ? " <" : ""), W / 2f, y, 4 * s, sel ? C(0.5f, 1f, 0.5f) : C(0.75f, 0.75f, 0.75f), 1);
         }
+        ui.Text("ALL GRAPHICS, SOUND AND MUSIC PROCEDURALLY GENERATED", W / 2f, H - 40 * s, 2 * s, C(0.6f, 0.6f, 0.6f, 0.7f), 1);
         if (!soundsLoaded) ui.Text("SYNTHESIZING AUDIO...", 20 * s, H - 40 * s, 2 * s, C(0.6f, 0.8f, 1f, 0.8f));
         ui.End();
     }
@@ -738,14 +825,8 @@ public class GameApp
         var L = world.L;
         ui.Begin(W, H);
 
-        // screen flashes
-        if (P.HurtFlash > 0) ui.Rect(0, 0, W, H, C(0.8f, 0, 0, MathF.Min(0.55f, P.HurtFlash * 0.45f)));
+        // screen flashes (damage and low health are drawn by the post-processing pass)
         if (P.PickupFlash > 0) ui.Rect(0, 0, W, H, C(1f, 0.9f, 0.5f, P.PickupFlash * 0.18f));
-        if (P.Health < 25 && !P.Dead)
-        {
-            float beat = MathF.Max(0, MathF.Sin(time * 6)) * 0.18f;
-            ui.Rect(0, 0, W, H, C(0.6f, 0, 0, beat));
-        }
 
         if (state == GameState.Playing && !P.Dead && world.VictoryT < 0)
         {

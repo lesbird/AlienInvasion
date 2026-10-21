@@ -15,6 +15,7 @@ public class Player
     public float SwitchT;           // 0 = raised; >0 lowering/raising
     public bool[] Keys = new bool[4];
     public float Cooldown, Recoil, Bob, BobAmount, HurtFlash, PickupFlash, Shake, KnifeT, FireFlash;
+    public float Heat;   // 0..1, builds up with sustained fire; the barrel glows and shimmers
     public bool Flashlight = true;
     public bool Backpack;           // +50% ammo capacity
     public float AmpT;              // damage amplifier time left
@@ -112,6 +113,8 @@ public class Enemy
     public bool Hidden => Burrowed;  // underground: can't be seen, shot or hurt
     public float LastHit;            // size of the most recent hit
     public bool LastHitExplosive;
+    public Vector3 DeathVel;         // launch velocity for the ragdoll
+    public Ragdoll Rag;              // built by the renderer from the pose at death
 
     public bool Dead => State == EState.Dead;
     public float Bottom => Pos.Y;
@@ -129,6 +132,13 @@ public struct Decal
 }
 
 /// <summary>A piece of a blown-apart alien that tumbles, bounces and settles.</summary>
+/// <summary>Expanding screen-distortion ring from an explosion.</summary>
+public class Shockwave
+{
+    public Vector3 Pos;
+    public float Age, Life, Size, Strength;
+}
+
 public class Chunk
 {
     public Vector3 Pos, Vel, Axis, Scale, Color;

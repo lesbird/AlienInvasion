@@ -41,6 +41,9 @@ uniform float uBlink; uniform float uTime;
 uniform int uVision;    // 0 normal, 1 night vision, 2 x-ray
 uniform float uHot;     // >0.5: flat emissive silhouette in uTint (heat-glowing aliens, x-ray see-through)
 uniform vec2 uScreen;
+uniform float uPulse;                  // >0.5: glow breathes in waves across the surface (hive growth)
+uniform float uXrayWorld;              // >0.5 while drawing level geometry (x-ray blueprint + lenses)
+uniform int uLensCount; uniform vec4 uLens[12];   // x-ray: hidden targets, xyz = world pos, w = angular radius
 out vec4 FragColor;
 
 float grain() {
@@ -59,6 +62,42 @@ vec3 visionGrade(vec3 col, vec3 albedo) {
   lum = lum * 1.7 + 0.03;
   float scan = 0.9 + 0.1 * sin(gl_FragCoord.y * 1.6 + uTime * 8.0);
   return vec3(0.25, 0.5, 1.0) * lum * scan * (0.45 + 0.55 * vig);
+}
+
+// grid lines on the surface's dominant plane, antialiased; spacing in metres
+float gridLines(vec3 N, float spacing) {
+  vec3 a = abs(N);
+  vec2 q = (a.y > 0.5 ? vWorld.xz : a.x > 0.5 ? vWorld.zy : vWorld.xy) / spacing;
+  vec2 d = abs(fract(q - 0.5) - 0.5) / max(fwidth(q), vec2(1e-4));
+  return 1.0 - min(min(d.x, d.y), 1.0);
+}
+// x-ray goggles on level geometry: faint blueprint grid, an outward sonar ping, and a glowing lens
+// cut into any surface that stands between the camera and a hidden alien or keycard
+vec3 xrayWorld(vec3 col, vec3 N, float camDist) {
+  float near = exp(-camDist * 0.05);
+  col += vec3(0.1, 0.28, 0.7) * gridLines(N, 1.0) * 0.32 * near;
+  float ping = mod(uTime * 16.0, 64.0);
+  col += vec3(0.25, 0.55, 1.0) * exp(-abs(camDist - ping) * 1.2) * (1.0 - ping / 64.0) * 0.55;
+  vec3 dirF = (vWorld - uCamPos) / max(camDist, 1e-4);
+  float inside = 0.0, rim = 0.0, kMin = 9.0;
+  for (int i = 0; i < uLensCount; i++) {
+    vec3 T = uLens[i].xyz - uCamPos;
+    float dT = length(T);
+    if (camDist > dT - 0.4) continue;          // only surfaces in front of the target
+    float th = sqrt(max(0.0, 2.0 * (1.0 - dot(dirF, T / dT))));
+    float k = th / uLens[i].w;
+    if (k > 1.3) continue;
+    inside = max(inside, 1.0 - smoothstep(0.82, 1.0, k));
+    rim = max(rim, exp(-pow((k - 1.0) * 10.0, 2.0)));
+    kMin = min(kMin, k);
+  }
+  if (kMin < 9.0) {
+    col *= mix(1.0, 0.18, inside);                                   // the wall thins out
+    col += vec3(0.25, 0.65, 1.0) * gridLines(N, 0.2) * inside * 0.5;  // fine holo mesh
+    col += vec3(0.2, 0.5, 1.0) * (0.5 + 0.5 * sin(kMin * 22.0 - uTime * 7.0)) * inside * kMin * 0.22;
+    col += vec3(0.45, 0.85, 1.0) * rim * 1.3;                          // bright rim (bloom picks it up)
+  }
+  return col;
 }
 
 float shadowSample(int k, vec3 d) {
@@ -177,12 +216,14 @@ void main(){
     light += vec3(1.0, 0.95, 0.85) * (spot * 1.4 * sh + 0.08) * att * max(dot(N, L), 0.0) * uFlashOn;
   }
   float glow = max(max(vColor.a, uGlow), texGlow);
+  if (uPulse > 0.5) glow *= 0.3 + 0.7 * pow(0.5 + 0.5 * sin(uTime * 2.1 - dot(vWorld.xz, vec2(0.45, 0.3)) - vWorld.y * 0.8), 2.0);
   vec3 col = base.rgb * mix(light, vec3(1.0), glow);
   col += base.rgb * texGlow * 0.6;
   col += base.rgb * glow * 0.35;   // emissive surfaces go past 1.0 so the bloom picks them up
   if (uVision != 0) {
     float fogV = exp(-uFogDensity * (uVision == 1 ? 0.35 : 0.8) * camDist);
     col = visionGrade(mix(vec3(0.0), col, clamp(fogV, 0.0, 1.0)), base.rgb);
+    if (uVision == 2 && uXrayWorld > 0.5) col = xrayWorld(col, N, camDist);
     FragColor = vec4(col, base.a);
     return;
   }
@@ -216,6 +257,49 @@ void main(){
   if (uVision == 1) c = vec3(0.3, 1.0, 0.35) * min(1.5, lum * 1.6);
   else if (uVision == 2) c = vec3(0.35, 0.6, 1.0) * lum;
   FragColor = vec4(c, a);
+}";
+
+    // screen-distortion sprites, drawn additively into the half-res offset buffer.
+    // aNormal = (kind, strength, ignoreDepth); aColor.x = phase (age), aColor.w = fade.
+    // kind 0: shockwave ring, 1: heat haze, 2: swirl (portal / teleport)
+    const string DistVS = @"#version 330 core
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNormal;
+layout(location=2) in vec2 aUV;
+layout(location=3) in vec4 aColor;
+uniform mat4 uView, uProj;
+out vec2 vUV; out vec3 vP; out vec4 vC; out float vZ;
+void main(){
+  vec4 v = uView * vec4(aPos, 1.0);
+  vZ = -v.z; vUV = aUV; vP = aNormal; vC = aColor;
+  gl_Position = uProj * v;
+}";
+
+    const string DistFS = @"#version 330 core
+in vec2 vUV; in vec3 vP; in vec4 vC; in float vZ;
+uniform sampler2D uDepth; uniform vec2 uTarget; uniform float uNear, uFar, uTime;
+out vec4 FragColor;
+float linZ(float d) { float z = (d - 0.01) / 0.99 * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); }
+void main(){
+  vec2 p = vUV * 2.0 - 1.0;
+  float r = length(p);
+  if (r > 1.0) discard;
+  if (vP.z < 0.5) {
+    float sz = linZ(texture(uDepth, gl_FragCoord.xy / uTarget).r);
+    if (vZ > sz + 0.25) discard;                        // behind a wall
+  }
+  vec2 off;
+  int kind = int(vP.x + 0.5);
+  if (kind == 0) {
+    float band = exp(-pow((r - vC.x) * 7.0, 2.0));
+    off = p / max(r, 1e-3) * band * (1.0 - vC.x);
+  } else if (kind == 1) {
+    off = vec2(sin(p.y * 9.0 + uTime * 11.0 + vC.x * 6.0), cos(p.x * 8.0 + uTime * 9.0 + vC.x * 5.0)) * pow(1.0 - r, 2.0);
+  } else {
+    vec2 t = vec2(-p.y, p.x);
+    off = (t * (1.0 + 0.4 * sin(r * 12.0 - uTime * 5.0)) - p * 0.35) * r * (1.0 - r) * 4.0;
+  }
+  FragColor = vec4(off * vP.y * vC.w, 0.0, 1.0);
 }";
 
     const string ShadowVS = @"#version 330 core
@@ -276,8 +360,19 @@ void main(){
     float time, deathAnim;
     public float Fov = 72f;
     public bool Shadows = true;
-    public bool BloomOn = true;
-    readonly Bloom bloom;
+    public bool BloomOn = true, AO = true;
+    readonly PostFx post;
+    readonly PostParams pp = new();
+    readonly Shader dist;
+    readonly Texture hiveBlobT, hiveVeinT;
+    Mesh hiveBlobs, hiveVeins;
+    Vector3 hiveColor;
+    float hiveDensity;
+    readonly List<(Vector3 pos, Vector3 col, int i)> shafts = new();
+    int lastVision = -1;
+    float goggleStart = -10;
+    Vector3 lastMuzzle; bool muzzleValid;
+    Matrix4x4 lastVProj;
     public int TextureSeedOverride = -1;
 
     public Renderer(GL gl)
@@ -286,7 +381,8 @@ void main(){
         lit = new Shader(gl, LitVS, LitFS);
         part = new Shader(gl, PartVS, PartFS);
         shadow = new Shader(gl, ShadowVS, ShadowFS);
-        bloom = new Bloom(gl);
+        post = new PostFx(gl);
+        dist = new Shader(gl, DistVS, DistFS);
         cur = lit;
         shadowFbo = gl.GenFramebuffer();
         flashTex = gl.GenTexture();
@@ -320,6 +416,8 @@ void main(){
         metal = new Texture(gl, TexGen.Size, TexGen.Size, TexGen.Metal(12));
         portalTex = new Texture(gl, TexGen.Size, TexGen.Size, TexGen.Portal(13), true, false, true);
         for (int k = 0; k < 3; k++) decalTex[k] = new Texture(gl, 64, 64, DecalPixels(k), true, false, true);
+        hiveBlobT = new Texture(gl, 128, 128, HivePixels(false), true, false, true);
+        hiveVeinT = new Texture(gl, 128, 128, HivePixels(true), true, false, true);
 
         var b = new MeshBuilder();
         b.BoxC(Vector3.Zero, Vector3.One); cube = b.Build(gl); b.Clear();
@@ -345,7 +443,7 @@ void main(){
     void BuildLevel(Level L)
     {
         builtFor = L;
-        foreach (var m in new[] { walls, floors, ceils, crates, fixtures, elevFloor, pipes, props, propGlass, propBlink }) m?.Dispose();
+        foreach (var m in new[] { walls, floors, ceils, crates, fixtures, elevFloor, pipes, props, propGlass, propBlink, hiveBlobs, hiveVeins }) m?.Dispose();
         foreach (var t in new[] { wallT, floorT, ceilT, crateT, doorT, elevT, wallN, floorN, ceilN }) t?.Dispose();
         var theme = TexGen.ThemeFor(L.Number);
         int seed = L.Seed;
@@ -521,12 +619,135 @@ void main(){
         propBlink = blb.Build(gl);
         walls = wb.Build(gl); floors = fb.Build(gl); ceils = cb.Build(gl); crates = kb.Build(gl);
         fixtures = lb.Build(gl); elevFloor = eb.Build(gl); pipes = pb.Build(gl);
+        BuildHive(L);
+    }
+
+    /// <summary>Deep levels: glowing biolume patches on floors and ceilings and pulsing veins up the walls.</summary>
+    void BuildHive(Level L)
+    {
+        hiveDensity = L.Number < 14 ? 0 : MathF.Min(1, (L.Number - 13) / 14f);
+        float k = Math.Clamp((L.Number - 14) / 16f, 0, 1);
+        hiveColor = Vector3.Lerp(new Vector3(0.35f, 1f, 0.55f), new Vector3(0.85f, 0.35f, 1f), k);
+        var bb = new MeshBuilder(); var vb = new MeshBuilder();
+        float S = Level.CS, H = Level.WH;
+        var rng = new Random(L.Seed * 7 + 3);
+        if (hiveDensity > 0)
+            for (int y = 0; y < L.H; y++)
+                for (int x = 0; x < L.W; x++)
+                {
+                    if (!L.Floor(x, y) || L.Crate[L.Idx(x, y)] || (x == L.ExitX && y == L.ExitY) || (x == L.StartX && y == L.StartY)) continue;
+                    var c = Level.Center(x, y);
+                    var tint = hiveColor * (0.8f + (float)rng.NextDouble() * 0.4f);
+                    if (rng.NextDouble() < hiveDensity * 0.3)
+                        Patch(bb, c + new Vector3(((float)rng.NextDouble() - 0.5f) * 2, 0.015f, ((float)rng.NextDouble() - 0.5f) * 2), Vector3.UnitY, 1.6f + (float)rng.NextDouble() * 1.8f, tint, 0.9f, rng);
+                    if (rng.NextDouble() < hiveDensity * 0.15)
+                        Patch(bb, c + new Vector3(((float)rng.NextDouble() - 0.5f) * 2, H - 0.015f, ((float)rng.NextDouble() - 0.5f) * 2), -Vector3.UnitY, 1.5f + (float)rng.NextDouble() * 1.5f, tint, 0.9f, rng);
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int nx = x + (d == 0 ? 1 : d == 1 ? -1 : 0), ny = y + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                        if (L.Floor(nx, ny) || rng.NextDouble() >= hiveDensity * 0.35) continue;
+                        var n = new Vector3(x - nx, 0, y - ny);              // wall normal, pointing into this cell
+                        var side = new Vector3(-n.Z, 0, n.X);
+                        float wdt = 2.4f + (float)rng.NextDouble() * 1.4f, hgt = 2f + (float)rng.NextDouble() * 1.6f;
+                        var foot = c - n * (S / 2 - 0.025f) + side * ((float)rng.NextDouble() - 0.5f) * (S - wdt);
+                        bool flip = rng.NextDouble() < 0.5;
+                        vb.Col(tint, 0.8f);
+                        var a = foot - side * wdt / 2; var b = foot + side * wdt / 2;
+                        vb.Quad(a, b, b + Vector3.UnitY * hgt, a + Vector3.UnitY * hgt, n,
+                            new(flip ? 1 : 0, 1), new(flip ? 0 : 1, 1), new(flip ? 0 : 1, 0), new(flip ? 1 : 0, 0));
+                    }
+                }
+        hiveBlobs = bb.Build(gl);
+        hiveVeins = vb.Build(gl);
+    }
+
+    static void Patch(MeshBuilder b, Vector3 c, Vector3 n, float size, Vector3 col, float glow, Random rng)
+    {
+        float r = (float)rng.NextDouble() * MathF.Tau;
+        var t1 = new Vector3(MathF.Cos(r), 0, MathF.Sin(r)) * size / 2;
+        var t2 = Vector3.Cross(n, t1);
+        b.Col(col, glow);
+        b.Quad(c - t1 - t2, c + t1 - t2, c + t1 + t2, c - t1 + t2, n, new(0, 0), new(1, 0), new(1, 1), new(0, 1));
+    }
+
+    /// <summary>Hive textures: clustered glowing pods with membrane (patches), or branching veins (walls).</summary>
+    static byte[] HivePixels(bool veins)
+    {
+        const int N = 128;
+        var lum = new float[N * N]; var alpha = new float[N * N];
+        var r = new Random(veins ? 91 : 57);
+        if (!veins)
+        {
+            var pods = Enumerable.Range(0, 14).Select(_ =>
+            {
+                float a = (float)r.NextDouble() * MathF.Tau, d = (float)Math.Sqrt(r.NextDouble()) * 0.3f;
+                return (x: 0.5f + MathF.Cos(a) * d, y: 0.5f + MathF.Sin(a) * d, s: 0.03f + (float)r.NextDouble() * 0.06f);
+            }).ToArray();
+            for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    float u = (x + 0.5f) / N, v = (y + 0.5f) / N;
+                    float d = MathF.Sqrt((u - 0.5f) * (u - 0.5f) + (v - 0.5f) * (v - 0.5f));
+                    float ang = MathF.Atan2(v - 0.5f, u - 0.5f);
+                    float n = TexGen.Hash(x / 3, y / 3, 7) * 0.5f + TexGen.Hash(x / 9, y / 9, 8) * 0.5f;
+                    float edge = 0.36f + 0.07f * MathF.Sin(ang * 5 + 1) + 0.04f * MathF.Sin(ang * 11) - n * 0.05f;
+                    float a = Math.Clamp((edge - d) / 0.1f, 0, 1) * 0.75f;
+                    float l = 0.18f + n * 0.12f;
+                    foreach (var p in pods)
+                    {
+                        float pd = MathF.Sqrt((u - p.x) * (u - p.x) + (v - p.y) * (v - p.y)) / p.s;
+                        if (pd < 1.25f) { a = MathF.Max(a, Math.Clamp((1.25f - pd) / 0.25f, 0, 1)); l = MathF.Max(l, 1 - pd * pd * 0.75f); }
+                    }
+                    lum[y * N + x] = l; alpha[y * N + x] = a;
+                }
+        }
+        else
+        {
+            // random-walk branches growing up from the floor (v = 1 is the bottom edge)
+            var stack = new Stack<(float x, float y, float dir, float w, int len)>();
+            for (int i = 0; i < 3; i++) stack.Push((0.2f + i * 0.3f + (float)r.NextDouble() * 0.1f, 1f, -MathF.PI / 2, 0.03f, 160));
+            while (stack.Count > 0)
+            {
+                var (x, y, dir, w, len) = stack.Pop();
+                for (int k = 0; k < len && w > 0.006f; k++)
+                {
+                    dir += ((float)r.NextDouble() - 0.5f) * 0.22f + MathF.Sin(k * 0.15f) * 0.03f;
+                    dir = Math.Clamp(dir, -MathF.PI + 0.35f, -0.35f);
+                    x += MathF.Cos(dir) * 0.005f; y += MathF.Sin(dir) * 0.005f;
+                    w *= 0.994f;
+                    if (x < 0.02f || x > 0.98f || y < 0.02f) break;
+                    int cx = (int)(x * N), cy = (int)(y * N), rad = (int)MathF.Ceiling(w * N) + 1;
+                    for (int dy = -rad; dy <= rad; dy++)
+                        for (int dx = -rad; dx <= rad; dx++)
+                        {
+                            int px = cx + dx, py = cy + dy;
+                            if (px < 0 || py < 0 || px >= N || py >= N) continue;
+                            float dd = MathF.Sqrt(dx * dx + dy * dy) / (w * N);
+                            if (dd > 1) continue;
+                            int idx = py * N + px;
+                            alpha[idx] = MathF.Max(alpha[idx], Math.Clamp((1 - dd) * 2.5f, 0, 1));
+                            lum[idx] = MathF.Max(lum[idx], 0.35f + 0.65f * (1 - dd) * (1 - dd));
+                        }
+                    if (r.NextDouble() < 0.022) stack.Push((x, y, dir + (r.NextDouble() < 0.5 ? -0.75f : 0.75f), w * 0.7f, len - k));
+                    if (r.NextDouble() < 0.008) { int nx = (int)(x * N), ny = (int)(y * N); for (int dy = -3; dy <= 3; dy++) for (int dx = -3; dx <= 3; dx++) { int px = nx + dx, py = ny + dy; if (px >= 0 && py >= 0 && px < N && py < N && dx * dx + dy * dy <= 9) { alpha[py * N + px] = 1; lum[py * N + px] = 1; } } }
+                }
+            }
+        }
+        var px2 = new byte[N * N * 4];
+        for (int i = 0; i < N * N; i++)
+        {
+            byte l = (byte)(Math.Clamp(lum[i], 0, 1) * 255);
+            px2[i * 4] = px2[i * 4 + 1] = px2[i * 4 + 2] = l;
+            px2[i * 4 + 3] = (byte)(Math.Clamp(alpha[i], 0, 1) * 255);
+        }
+        return px2;
     }
 
     // =====================================================================  lights
     void GatherLights(World w)
     {
         lightCands.Clear();
+        shafts.Clear();
         beacons.Clear();
         var L = w.L;
         powerLevel = w.PowerLevel;
@@ -563,6 +784,7 @@ void main(){
                 k = h2 < l.Flicker * 0.5f ? (h < 0.5f ? 0.1f : 0.9f) : 1f;
             }
             lightCands.Add((l.Pos, l.Color * k, l.Radius, d - l.Radius * 0.3f, Vector4.Zero, ceiling));
+            if (d < 38 && MathF.Abs(l.Pos.Y - (Level.WH - 0.2f)) < 0.01f) shafts.Add((l.Pos, l.Color * k, i));
         }
         if (w.ActiveLockdown != null)
         {
@@ -754,6 +976,9 @@ void main(){
         {
             float s = P.Shake * P.Shake * 0.12f;
             eye += new Vector3(MathF.Sin(t * 47) * s, MathF.Sin(t * 53) * s, MathF.Cos(t * 41) * s);
+            float a = P.Shake * P.Shake * 0.035f;
+            fwd = Vector3.Normalize(fwd + P.Right * MathF.Sin(t * 37) * a + Vector3.UnitY * MathF.Sin(t * 43 + 1) * a);
+            up = Vector3.Normalize(Vector3.UnitY + P.Right * MathF.Sin(t * 29) * a * 0.8f);
         }
         if (deathAnim > 0)
         {
@@ -771,7 +996,9 @@ void main(){
         GatherLights(w);
         RenderShadowMaps(w);
         RenderFlashShadow(w);
-        if (BloomOn) bloom.Begin(fbW, fbH);
+        post.Begin(fbW, fbH);
+        if (lastVision < 0) lastVision = vision;
+        if (vision != lastVision) { lastVision = vision; goggleStart = t; }
         gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
         var clear = vision == 1 ? new Vector3(0.0f, 0.03f, 0.005f) : vision == 2 ? new Vector3(0.0f, 0.01f, 0.03f) : L.FogColor;
         gl.ClearColor(clear.X, clear.Y, clear.Z, 1);
@@ -779,6 +1006,7 @@ void main(){
         part.Set("uVision", vision);
         screen = new Vector2(fbW, fbH);
         gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+        gl.DepthRange(0.01, 1);   // [0, 0.01] is kept for the first-person weapon (see PostFx)
         gl.Enable(EnableCap.DepthTest);
         gl.DepthFunc(DepthFunction.Lequal);
         gl.Disable(EnableCap.CullFace);
@@ -789,6 +1017,8 @@ void main(){
         SetCommon(view, proj, P);
 
         // level
+        SetXrayLenses(w);
+        lit.Set("uXrayWorld", 1f);
         lit.Set("uModel", Matrix4x4.Identity);
         Tint(Vector4.One, 0);
         lit.Set("uTexGlow", 1f);
@@ -829,6 +1059,21 @@ void main(){
         lit.Set("uBump", 0f);
         lit.Set("uTexGlow", 0f);
 
+        if (hiveDensity > 0)
+        {
+            gl.Enable(EnableCap.Blend);
+            gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            gl.DepthMask(false);
+            lit.Set("uModel", Matrix4x4.Identity);
+            Tint(Vector4.One, 0);
+            lit.Set("uPulse", 1f);
+            hiveBlobT.Bind(); hiveBlobs.Draw();
+            hiveVeinT.Bind(); hiveVeins.Draw();
+            lit.Set("uPulse", 0f);
+            gl.DepthMask(true);
+            gl.Disable(EnableCap.Blend);
+        }
+
         DrawDecals(w);
 
         // doors
@@ -847,6 +1092,7 @@ void main(){
             cube.Draw();
         }
         lit.Set("uTexGlow", 0f);
+        lit.Set("uXrayWorld", 0f);
 
         // pickups
         foreach (var pk in w.Pickups)
@@ -944,6 +1190,18 @@ void main(){
             if (p.Additive) Billboard(p.Pos, p.Size, p.Color * new Vector4(1, 1, 1, p.Life / p.MaxLife));
         foreach (var b in w.Beams)
             BeamQuad(b.A, b.B, b.Width, b.Color * new Vector4(1, 1, 1, b.Life / b.MaxLife));
+        Flush(particleTex);
+        if (vision != 2)
+        {
+            foreach (var (sp, sc, _) in shafts)
+            {
+                LightShaft(sp, sc, 0.7f, 0.2f, 1.6f, 1.05f, 0.075f);
+                LightShaft(sp, sc, 0.75f, 0.22f, 2.3f, 1.6f, 0.04f);
+            }
+            Flush(white);
+            DrawDust();
+        }
+        DrawSwirls(w);
         foreach (var (bp, yaw, bc) in beacons)
         {
             var col = Vector3.Normalize(bc);
@@ -1012,9 +1270,213 @@ void main(){
         if (vision == 2) DrawXRay(w);
 
         // ---------- first person weapon ----------
+        muzzleValid = false;
         if (!P.Dead && w.VictoryT < 0) DrawViewModel(w, aspect);
         gl.Disable(EnableCap.Blend);
-        if (BloomOn) bloom.End();
+        gl.DepthRange(0, 1);
+        DrawDistortion(w);
+        SetPostParams(w, fbW, fbH);
+        post.Finish(pp);
+    }
+
+    /// <summary>Colour grade per area: (shadow lift, gain, saturation, contrast).</summary>
+    static (Vector3 lift, Vector3 gain, float sat, float con) GradeFor(int n) => n switch
+    {
+        <= 4 => (new(0, 0.008f, 0.012f), new(0.98f, 1f, 1.02f), 1f, 1.05f),                // surface, security, barracks, mess
+        <= 6 => (new(0.012f, 0.006f, 0), new(1.06f, 1f, 0.9f), 0.95f, 1.08f),              // armory, motor pool: warm industrial
+        <= 8 => (new(0, 0.005f, 0.02f), new(0.92f, 1f, 1.1f), 1f, 1.06f),                  // supply, comms, power: cool tech
+        <= 10 => (new(0, 0.012f, 0.01f), new(0.9f, 1.04f, 1f), 0.9f, 1.05f),               // water reclamation, tunnels: teal
+        11 => (new(0, 0.004f, 0.016f), new(0.95f, 1f, 1.08f), 1f, 1.06f),                  // command center
+        <= 13 => (new(0.004f, 0.01f, 0.012f), new(0.97f, 1.02f, 1.04f), 0.78f, 1f),        // medical, detention: clinical
+        14 => (new(0.01f, 0.007f, 0.002f), new(1.03f, 1f, 0.92f), 0.85f, 1.05f),           // deep storage: dusty
+        15 => (new(0.02f, 0.006f, 0), new(1.12f, 0.98f, 0.82f), 1.05f, 1.08f),             // geothermal: hot orange
+        <= 19 => (new(0, 0.006f, 0.02f), new(0.9f, 1f, 1.12f), 0.92f, 1.06f),              // research labs: cold blue
+        20 => (new(0.008f, 0.014f, 0), new(1.02f, 1.06f, 0.82f), 0.9f, 1.06f),             // quarantine: sickly yellow-green
+        21 => (new(0.02f, 0.008f, 0), new(1.12f, 1f, 0.8f), 1.08f, 1.1f),                  // reactor: amber
+        <= 23 => (new(0.014f, 0.008f, 0.002f), new(1.08f, 0.98f, 0.85f), 0.85f, 1.08f),    // excavation, mines: sepia
+        <= 27 => (new(0.01f, 0, 0.016f), new(0.98f, 1.06f, 0.95f), 1.1f, 1.12f),           // infested, nest, hive, brood
+        <= 29 => (new(0.016f, 0, 0.022f), new(1.04f, 0.92f, 1.1f), 1.1f, 1.12f),           // cathedral, breach: purple
+        _ => (new(0.02f, 0, 0.016f), new(1.1f, 0.9f, 1.05f), 1.15f, 1.15f),                // the portal
+    };
+
+    void SetPostParams(World w, int fbW, int fbH)
+    {
+        var P = w.P;
+        float aspect = fbW / (float)Math.Max(1, fbH);
+        float th = MathF.Tan(Fov * MathF.PI / 360);
+        pp.Bloom = BloomOn; pp.AO = AO && vision == 0;
+        pp.TanHalf = new Vector2(th * aspect, th);
+        pp.Near = 0.05f; pp.Far = 250f;
+        if (vision == 0)
+        {
+            var g = GradeFor(w.L.Number);
+            pp.Lift = g.lift; pp.Gain = g.gain; pp.Saturation = g.sat; pp.Contrast = g.con;
+        }
+        else { pp.Lift = Vector3.Zero; pp.Gain = Vector3.One; pp.Saturation = 1; pp.Contrast = 1; }
+        pp.Vignette = 0.35f; pp.Lens = 0.06f;
+        float low = P.Health < 35 && !P.Dead ? (35 - P.Health) / 35f : 0;
+        // heartbeat: a strong beat and a softer echo, faster as health drops
+        float ph = time * (1.1f + low * 0.7f) % 1f;
+        float beat = MathF.Exp(-ph * 14) + 0.6f * (ph > 0.2f ? MathF.Exp(-(ph - 0.2f) * 14) : 0);
+        pp.Hurt = MathF.Min(1, P.HurtFlash * 0.85f);
+        pp.LowHealth = low * (0.3f + 0.55f * beat);
+        pp.Desaturate = P.Dead ? 1 : low * 0.75f;
+        pp.Chroma = P.HurtFlash * 0.014f + P.Shake * P.Shake * 0.006f;
+        float gt = (time - goggleStart) / 0.45f;
+        pp.GoggleT = gt >= 0 && gt < 1 ? gt : -1;
+        pp.Time = time;
+    }
+
+    /// <summary>Additive soft frustum of light below a ceiling fixture, fading out toward the floor.</summary>
+    void LightShaft(Vector3 fixture, Vector3 col, float tx, float tz, float bx, float bz, float a)
+    {
+        float top = Level.WH - 0.13f, bottom = 0.2f;
+        var c = new Vector4(Vector3.Normalize(col + new Vector3(0.001f)) * MathF.Min(1.2f, col.Length()), a);
+        var c0 = new Vector4(c.X, c.Y, c.Z, 0);
+        Vector3 T(float x, float z) => new(fixture.X + x, top, fixture.Z + z);
+        Vector3 B(float x, float z) => new(fixture.X + x, bottom, fixture.Z + z);
+        var tc = new[] { T(-tx, -tz), T(tx, -tz), T(tx, tz), T(-tx, tz) };
+        var bc = new[] { B(-bx, -bz), B(bx, -bz), B(bx, bz), B(-bx, bz) };
+        for (int k = 0; k < 4; k++)
+        {
+            int k2 = (k + 1) % 4;
+            uint i = (uint)pv.Count;
+            pv.Add(new Vertex(tc[k], Vector3.Zero, new(0.5f, 0.5f), c));
+            pv.Add(new Vertex(tc[k2], Vector3.Zero, new(0.5f, 0.5f), c));
+            pv.Add(new Vertex(bc[k2], Vector3.Zero, new(0.5f, 0.5f), c0));
+            pv.Add(new Vertex(bc[k], Vector3.Zero, new(0.5f, 0.5f), c0));
+            pi.Add(i); pi.Add(i + 1); pi.Add(i + 2); pi.Add(i); pi.Add(i + 2); pi.Add(i + 3);
+        }
+    }
+
+    /// <summary>Dust motes drifting down through the light shafts, and glowing spores on hive levels.</summary>
+    void DrawDust()
+    {
+        float H = Level.WH;
+        foreach (var (sp, sc, li) in shafts)
+        {
+            if (Vector3.DistanceSquared(sp, cam) > 16 * 16) continue;
+            var col = Vector3.Normalize(sc + new Vector3(0.001f)) * MathF.Min(1, sc.Length());
+            for (int m = 0; m < 7; m++)
+            {
+                float h0 = TexGen.Hash(li, m, 1), h1 = TexGen.Hash(li, m, 2), h2 = TexGen.Hash(li, m, 3), h3 = TexGen.Hash(li, m, 4);
+                float f = (h0 + time * 0.012f * (0.5f + h1)) % 1f;
+                float ex = GMath.Lerp(0.6f, 1.5f, f), ez = GMath.Lerp(0.2f, 1.0f, f);
+                var p = new Vector3(sp.X + (h2 * 2 - 1) * ex + MathF.Sin(time * 0.6f + h3 * 6) * 0.12f,
+                                    H - 0.25f - f * (H - 0.5f),
+                                    sp.Z + (h3 * 2 - 1) * ez + MathF.Cos(time * 0.5f + h2 * 6) * 0.12f);
+                Billboard(p, 0.035f, new Vector4(col, 0.55f * MathF.Sin(f * MathF.PI)));
+            }
+        }
+        if (hiveDensity > 0)
+        {
+            const float Cell = 2.2f;
+            int cx = (int)MathF.Floor(cam.X / Cell), cz = (int)MathF.Floor(cam.Z / Cell);
+            for (int z = cz - 6; z <= cz + 6; z++)
+                for (int x = cx - 6; x <= cx + 6; x++)
+                {
+                    if (TexGen.Hash(x, z, 61) > hiveDensity * 0.7f) continue;
+                    float h1 = TexGen.Hash(x, z, 62), h2 = TexGen.Hash(x, z, 63), h3 = TexGen.Hash(x, z, 64);
+                    var p = new Vector3((x + h1) * Cell + MathF.Sin(time * 0.4f + h2 * 9) * 0.4f,
+                                        0.3f + (h3 + time * 0.02f * (0.5f + h1)) % 1f * (H - 0.6f),
+                                        (z + h2) * Cell + MathF.Cos(time * 0.35f + h1 * 9) * 0.4f);
+                    if (!builtFor.Floor((int)(p.X / Level.CS), (int)(p.Z / Level.CS))) continue;
+                    float tw = 0.5f + 0.5f * MathF.Sin(time * 3 + h1 * 20);
+                    Billboard(p, 0.07f + h2 * 0.05f, new Vector4(hiveColor, 0.35f + 0.5f * tw));
+                }
+        }
+        Flush(particleTex);
+    }
+
+    /// <summary>Particles spiralling into the portal and around aliens teleporting in.</summary>
+    void DrawSwirls(World w)
+    {
+        var portal = w.PortalE;
+        if (portal != null && !portal.Dead)
+        {
+            var center = portal.Pos + new Vector3(0, 2.55f, 0);
+            var right = Vector3.Transform(Vector3.UnitX, Matrix4x4.CreateRotationY(portal.Yaw));
+            var nrm = Vector3.Cross(right, Vector3.UnitY);
+            for (int i = 0; i < 48; i++)
+            {
+                float f = (time * 0.22f + i * 0.37f) % 1f;
+                float r = (1 - f) * 5.2f, a = i * 2.4f + f * 7f;
+                var p = center + right * MathF.Cos(a) * r + Vector3.UnitY * MathF.Sin(a) * r + nrm * MathF.Sin(i * 1.3f) * (1 - f) * 0.8f;
+                Billboard(p, 0.12f + (1 - f) * 0.14f, new Vector4(0.8f, 0.4f, 1f, f * 0.9f));
+            }
+        }
+        foreach (var e in w.Enemies)
+        {
+            if (e.Dead || e.SpawnT <= 0) continue;
+            for (int i = 0; i < 16; i++)
+            {
+                float a = i * 0.4f + time * 7, r = 0.3f + e.SpawnT * 1.8f;
+                float y = (i / 15f - 0.5f) * MathF.Max(1, e.D.Height) * (1.2f - e.SpawnT * 0.4f);
+                Billboard(e.Mid + new Vector3(MathF.Cos(a) * r, y, MathF.Sin(a) * r), 0.16f, new Vector4(0.75f, 0.35f, 1f, e.SpawnT));
+            }
+        }
+        Flush(particleTex);
+    }
+
+    /// <summary>Screen-space offset sprite for the distortion buffer (see DistFS).</summary>
+    void DistSprite(Vector3 p, float size, int kind, float strength, float phase, float fade, bool ignoreDepth = false)
+    {
+        var r = camRight * size * 0.5f;
+        var u = camUp * size * 0.5f;
+        var prm = new Vector3(kind, strength, ignoreDepth ? 1 : 0);
+        var c = new Vector4(phase, 0, 0, fade);
+        uint b = (uint)pv.Count;
+        pv.Add(new Vertex(p - r - u, prm, new(0, 0), c));
+        pv.Add(new Vertex(p + r - u, prm, new(1, 0), c));
+        pv.Add(new Vertex(p + r + u, prm, new(1, 1), c));
+        pv.Add(new Vertex(p - r + u, prm, new(0, 1), c));
+        pi.Add(b); pi.Add(b + 1); pi.Add(b + 2); pi.Add(b); pi.Add(b + 2); pi.Add(b + 3);
+    }
+
+    /// <summary>Shockwave rings, heat haze over hot projectiles, burning barrels and an overheated barrel,
+    /// and the swirl of the portal and of teleporting aliens.</summary>
+    void DrawDistortion(World w)
+    {
+        post.BeginDistortion();
+        dist.Use();
+        dist.Set("uView", view);
+        dist.Set("uProj", proj);
+        dist.Set("uDepth", 1);
+        dist.Set("uTarget", post.HalfSize);
+        dist.Set("uNear", 0.05f); dist.Set("uFar", 250f);
+        dist.Set("uTime", time % 600f);
+        gl.ActiveTexture(TextureUnit.Texture1);
+        gl.BindTexture(TextureTarget.Texture2D, post.DepthTexture);
+        gl.ActiveTexture(TextureUnit.Texture0);
+        foreach (var s in w.Shockwaves)
+        {
+            float k = s.Age / s.Life;
+            DistSprite(s.Pos, s.Size * (0.3f + 0.7f * k), 0, s.Strength, k, 1 - k * k);
+        }
+        foreach (var p in w.Projs)
+        {
+            if (p.Kind is ProjKind.Plasma or ProjKind.EnemyPlasma) DistSprite(p.Pos, 1.0f, 1, 0.004f, p.Pos.X, 1);
+            else if (p.Kind is ProjKind.Void or ProjKind.BruteOrb or ProjKind.EnemyOrb) DistSprite(p.Pos, p.Kind == ProjKind.Void ? 3.2f : 1.6f, 1, 0.006f, p.Pos.X, 1);
+            else if (p.Kind == ProjKind.Rocket) DistSprite(p.Pos - Vector3.Normalize(p.Vel) * 0.8f, 1.2f, 1, 0.004f, p.Pos.X, 1);
+        }
+        foreach (var b in w.Barrels)
+            if (!b.Dead && b.Fuse >= 0) DistSprite(b.Pos + new Vector3(0, 1.8f, 0), 1.8f, 1, 0.005f, b.Pos.Z, 1);
+        var portal = w.PortalE;
+        if (portal != null && !portal.Dead)
+        {
+            float shrink = w.VictoryT >= 0 ? MathF.Max(0, 1 - w.VictoryT / 3f) : 1;
+            DistSprite(portal.Pos + new Vector3(0, 2.55f, 0), 11f * shrink, 2, 0.025f, 0, 1);
+        }
+        foreach (var e in w.Enemies)
+            if (!e.Dead && e.SpawnT > 0) DistSprite(e.Mid, 2.5f + e.D.Height, 2, 0.035f, 0, e.SpawnT);
+        Flush(white);
+        if (muzzleValid && w.P.Heat > 0.25f)
+        {
+            dist.Set("uProj", lastVProj);
+            DistSprite(lastMuzzle + camUp * 0.06f, 0.22f, 1, 0.005f * w.P.Heat, 0, 1, true);
+            Flush(white);
+        }
+        gl.Disable(EnableCap.Blend);
     }
 
     void SetCommon(Matrix4x4 v, Matrix4x4 p, Player P)
@@ -1052,6 +1514,8 @@ void main(){
         lit.Set("uTime", time % 3600f);
         lit.Set("uVision", vision);
         lit.Set("uHot", 0f);
+        lit.Set("uXrayWorld", 0f);
+        lit.Set("uPulse", 0f);
         lit.Set("uScreen", screen);
         lit.Set("uFlashOn", P.Flashlight && !P.Dead ? 1f : 0f);
         lit.Set("uFlashPos", flashPos);
@@ -1111,6 +1575,34 @@ void main(){
         }
     }
 
+    readonly Vector4[] lenses = new Vector4[12];
+    readonly List<(float D, Vector4 L)> lensCands = new();
+
+    /// <summary>X-ray goggles: one lens per alien or keycard hidden behind level geometry, nearest first.</summary>
+    void SetXrayLenses(World w)
+    {
+        int n = 0;
+        if (vision == 2)
+        {
+            const float Range = 48;
+            lensCands.Clear();
+            void Add(Vector3 pos, float r)
+            {
+                float d = Vector3.Distance(pos, cam);
+                if (d > Range || d < 1f || w.L.LineOfSight(cam, pos)) return;
+                lensCands.Add((d, new Vector4(pos, MathF.Atan(r / d))));
+            }
+            foreach (var e in w.Enemies)
+                if (!e.Dead) Add(e.Mid, MathF.Max(e.D.Radius, e.D.Height * 0.5f) * 1.25f + 0.35f);
+            foreach (var pk in w.Pickups)
+                if (pk.Kind == PickupKind.Key) Add(pk.Pos, 0.7f);
+            lensCands.Sort((a, b) => a.D.CompareTo(b.D));
+            for (; n < lensCands.Count && n < lenses.Length; n++) lenses[n] = lensCands[n].L;
+        }
+        lit.Set("uLensCount", n);
+        if (n > 0) lit.SetArray("uLens", lenses, n);
+    }
+
     /// <summary>X-ray goggles: aliens and items behind walls drawn as glowing silhouettes
     /// (depth test GREATER, so only the hidden parts light up).</summary>
     void DrawXRay(World w)
@@ -1143,6 +1635,12 @@ void main(){
 
     void Part(Mesh m, Matrix4x4 local, Vector3 col, float glow = 0)
     {
+        if (capture != null)
+        {
+            capture.Add((new Ragdoll.Part { Mesh = m, M0 = local * root, Col = col, Glow = glow }, pendingLimb != null));
+            if (pendingLimb is var (a, b, th)) { captureLimbs.Add((Vector3.Transform(a, root), Vector3.Transform(b, root), th)); pendingLimb = null; }
+            return;
+        }
         cur.Set("uModel", local * root);
         if (cur == lit && hotTint is Vector4 h)
             lit.Set("uTint", new Vector4(h.X, h.Y, h.Z, MathF.Max(alpha, h.W)));
@@ -1155,16 +1653,64 @@ void main(){
         m.Draw();
     }
 
-    void Limb(Vector3 a, Vector3 b, float th, Vector3 col, float glow = 0) => Part(cyl, Seg(a, b, th), col, glow);
+    void Limb(Vector3 a, Vector3 b, float th, Vector3 col, float glow = 0)
+    {
+        if (capture != null && Vector3.DistanceSquared(a, b) > 1e-8f) pendingLimb = (a, b, th);
+        Part(cyl, Seg(a, b, th), col, glow);
+    }
+
+    // ragdoll capture: while set, Part() records world-space parts instead of drawing
+    List<(Ragdoll.Part P, bool IsLimb)> capture;
+    readonly List<(Vector3 A, Vector3 B, float Th)> captureLimbs = new();
+    (Vector3 A, Vector3 B, float Th)? pendingLimb;
+    public bool Ragdolls = true;
+
+    /// <summary>Record the alien's pose at death and turn it into a ragdoll launched along the killing blow.</summary>
+    void CaptureRagdoll(Enemy e, World w)
+    {
+        capture = new();
+        captureLimbs.Clear();
+        pendingLimb = null;
+        var keep = (root, flash, alpha, hotTint);
+        hotTint = null;
+        DrawEnemy(e, w, true);
+        var parts = capture;
+        capture = null;
+        (root, flash, alpha, hotTint) = keep;
+        if (parts.Count == 0) return;
+        var up = e.OnCeiling ? -Vector3.UnitY : Vector3.UnitY;
+        var fwd = new Vector3(MathF.Sin(e.Yaw), 0, -MathF.Cos(e.Yaw));
+        e.Rag = new Ragdoll(new(captureLimbs), parts, up, fwd);
+        e.Rag.Push(e.DeathVel, new Random((int)(e.Seed * 1000)));
+    }
+
+    void DrawRagdoll(Enemy e)
+    {
+        root = Matrix4x4.Identity;
+        flash = 0; alpha = 1;
+        float sink = e.DeathT > 10 ? MathF.Min(1, (e.DeathT - 10) * 0.1f) : 0;
+        var down = Matrix4x4.CreateTranslation(0, -sink * 0.8f, 0);
+        foreach (var p in e.Rag.Parts) Part(p.Mesh, e.Rag.Transform(p) * down, p.Col, p.Glow);
+    }
     void Spike(Vector3 a, Vector3 b, float th, Vector3 col, float glow = 0) => Part(cone, Seg(a, b, th), col, glow);
 
     void DrawEnemy(Enemy e, World w, bool transparentPass)
     {
         var D = e.D;
         float t = e.Anim + e.Seed;
-        float death = e.Dead ? MathF.Min(1, e.DeathT * 2.2f) : 0;
+        float death = e.Dead && capture == null ? MathF.Min(1, e.DeathT * 2.2f) : 0;
         if (e.Dead && e.D.Stationary) return;
         if (e.Dead && e.Gibbed) return;
+        if (e.Dead && capture == null && Ragdolls && !e.Hidden)
+        {
+            if (e.Rag == null) CaptureRagdoll(e, w);
+            if (e.Rag != null)
+            {
+                if (e.Type == EnemyDefs.Stalker && !transparentPass) return;
+                DrawRagdoll(e);
+                return;
+            }
+        }
         if (e.Hidden)
         {
             // burrowed: a mound of earth ploughing along the floor
@@ -1883,7 +2429,7 @@ void main(){
     void DrawViewModel(World w, float aspect)
     {
         var P = w.P;
-        gl.Clear(ClearBufferMask.DepthBufferBit);
+        gl.DepthRange(0, 0.01);   // always in front of the world, without clearing the depth the post pass needs
         gl.Disable(EnableCap.Blend);
         var vproj = GMath.Perspective(62 * MathF.PI / 180, aspect, 0.01f, 20f);
         lit.Use();
@@ -1922,6 +2468,30 @@ void main(){
         lit.Set("uTint", amp ? new Vector4(1f, 0.75f, 0.55f, 1) : P.Upgraded[id] ? new Vector4(1.08f, 0.98f, 0.82f, 1) : Vector4.One);
         lit.Set("uGlow", amp ? 0.12f + 0.08f * MathF.Sin(time * 8) : 0f);
         weaponView[id].Draw();
+
+        if (id != Weapons.Knife)
+        {
+            lastMuzzle = Vector3.Transform(muzzle[id], model);
+            lastVProj = vproj;
+            muzzleValid = true;
+        }
+        if (P.Heat > 0.2f && id != Weapons.Knife)
+        {
+            // overheated barrel: an orange glow at the tip that fades as it cools
+            float hk = (P.Heat - 0.2f) / 0.8f;
+            gl.Enable(EnableCap.Blend);
+            gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
+            gl.DepthMask(false);
+            part.Use();
+            part.Set("uView", view);
+            part.Set("uProj", vproj);
+            part.Set("uFogDensity", 0f);
+            Billboard(lastMuzzle, 0.07f + 0.06f * hk, new Vector4(1f, 0.35f, 0.08f, hk * 0.9f));
+            Billboard(lastMuzzle, 0.035f + 0.03f * hk, new Vector4(1f, 0.75f, 0.4f, hk * 0.7f));
+            Flush(particleTex);
+            gl.DepthMask(true);
+            lit.Use();
+        }
 
         if (P.FireFlash > 0 && id != Weapons.Knife)
         {

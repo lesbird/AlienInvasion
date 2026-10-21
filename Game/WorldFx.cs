@@ -22,6 +22,20 @@ public partial class World
         KillMarkerT -= dt;
     }
 
+    public readonly List<Shockwave> Shockwaves = new();
+
+    public void AddShockwave(Vector3 pos, float size, float strength)
+    {
+        if (Shockwaves.Count >= 12) Shockwaves.RemoveAt(0);
+        Shockwaves.Add(new Shockwave { Pos = pos, Size = size, Strength = strength, Life = 0.55f });
+    }
+
+    void UpdateShockwaves(float dt)
+    {
+        foreach (var s in Shockwaves) s.Age += dt;
+        Shockwaves.RemoveAll(s => s.Age >= s.Life);
+    }
+
     public void AddDecal(Vector3 pos, Vector3 n, float size, int kind, Vector4 col)
     {
         if (Decals.Count >= MaxDecals) Decals.RemoveAt(0);

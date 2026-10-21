@@ -62,7 +62,7 @@ public partial class World
         P.Vel = Vector3.Zero;
         P.Dead = false;
         Array.Clear(P.Keys);
-        P.HurtFlash = P.PickupFlash = P.Shake = 0;
+        P.HurtFlash = P.PickupFlash = P.Shake = P.Heat = 0;
 
         var perCell = new Dictionary<int, int>();
         foreach (var it in L.Items)
@@ -162,6 +162,7 @@ public partial class World
         UpdatePickups(dt);
         UpdateEffects(dt);
         UpdateChunks(dt);
+        UpdateShockwaves(dt);
         UpdatePortal(dt);
 
         exploreT -= dt;
@@ -213,6 +214,7 @@ public partial class World
         P.HurtFlash = MathF.Max(0, P.HurtFlash - dt * 1.5f);
         P.PickupFlash = MathF.Max(0, P.PickupFlash - dt * 2.5f);
         P.Shake = MathF.Max(0, P.Shake - dt * 2f);
+        P.Heat = MathF.Max(0, P.Heat - dt * 0.3f);
         P.Recoil = MathF.Max(0, P.Recoil - dt * 1.2f) * MathF.Pow(0.0001f, dt);
         P.KnifeT = MathF.Max(0, P.KnifeT - dt * 3.5f);
         P.FireFlash -= dt;
@@ -329,7 +331,10 @@ public partial class World
         var fwd = P.Forward;
         if (w.Mode != FireMode.Melee) P.FireFlash = 0.05f;
         if (w.Mode != FireMode.Melee)
-            DynLights.Add(new DynLight { Pos = eye + fwd * 1.0f, Color = w.Flash * 2f, Radius = 10, Life = 0.07f, MaxLife = 0.07f });
+        {
+            DynLights.Add(new DynLight { Pos = eye + fwd * 1.0f, Color = w.Flash * 3f, Radius = 15, Life = 0.09f, MaxLife = 0.09f });
+            P.Heat = MathF.Min(1, P.Heat + MathF.Min(0.12f, 0.35f / w.Rate + 0.02f));
+        }
 
         switch (w.Mode)
         {
@@ -614,6 +619,12 @@ public partial class World
         }
         if (e.Type == EnemyDefs.Bloater) BloaterBurst(e);
         if (e.D.Boss) BossDefeated(e);
+        // ragdoll launch: along the killing blow, harder for big hits and explosions, lighter for bosses
+        var flat = new Vector3(dir.X, 0, dir.Z);
+        flat = flat.LengthSquared() > 1e-4f ? Vector3.Normalize(flat) : Vector3.Zero;
+        float force = e.LastHitExplosive ? 7.5f : Math.Clamp(e.LastHit / 22f, 1.6f, 5.5f);
+        if (e.MaxHp >= 1500) force *= 0.4f;
+        e.DeathVel = flat * force + Vector3.UnitY * (e.LastHitExplosive ? 4.5f : 1.0f);
         Blood(e.Mid, dir * 3 + Vector3.UnitY * 2, 28);
         Gibs(e);
         KillFeedback(e);
@@ -697,7 +708,8 @@ public partial class World
         float pd = Vector3.Distance(pos, P.Pos + Vector3.UnitY);
         if (pd < radius && L.LineOfSight(pos, P.Eye))
             DamagePlayer(dmg * (1 - pd / radius) * (fromPlayer ? 0.4f : 1f), pos);
-        P.Shake = MathF.Min(1, P.Shake + MathF.Max(0, 1 - pd / 25f) * 0.5f);
+        P.Shake = MathF.Min(1, P.Shake + MathF.Max(0, 1 - pd / 25f) * MathF.Min(1, 0.25f + radius * 0.12f));
+        AddShockwave(pos, radius * 3.2f, MathF.Min(0.06f, 0.012f + radius * 0.009f));
     }
 
     // =====================================================================  explosive barrels
@@ -878,7 +890,7 @@ public partial class World
 
     void UpdateEnemy(Enemy e, float dt)
     {
-        if (e.Dead) { e.DeathT += dt; return; }
+        if (e.Dead) { e.DeathT += dt; e.Rag?.Update(dt, L); return; }
         var D = e.D;
         e.Anim += dt;
         e.PainFlash -= dt;

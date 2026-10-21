@@ -344,10 +344,30 @@ the summary flags a **NEW BEST!**
 - **Surfaces:** bump-mapped walls, floors and ceilings, with an alien infestation overlay that
   spreads as you go deeper.
 - **Bloom:** HDR glow around lights, screens, muzzle flashes and explosions (toggle with **B**).
+- **Atmosphere:** soft light shafts with drifting dust under ceiling lights, ambient occlusion in
+  corners and under furniture, and a colour grade for every area: warm in the motor pool, cold
+  blue in the labs, amber in the reactor, sickly green and purple in the hive.
+- **Hive growth:** from sublevel 14 glowing pods spread over floors and ceilings and pulsing veins
+  creep up the walls, with luminous spores in the air. It gets denser the deeper you go.
+- **Post-processing:**
+  - explosions send a shockwave ripple across the screen and shake the camera, harder for big blasts
+  - heat haze shimmers around plasma, void and orb shots, rockets, burning barrels and the portal
+  - a slight lens curve and vignette
+- **Damage feedback:** getting hit bleeds red in from the screen edges with a brief colour split.
+  Below 35 health the colour drains away and the edges pulse with your heartbeat.
+- **Weapons:** muzzle flashes light up the room, and sustained fire makes the barrel tip glow
+  orange and shimmer with heat.
+- **Goggles:** switching night vision or x-ray on or off plays a power-up wipe. With x-ray on, the
+  walls show a blueprint grid and a sonar ping, and every wall hiding an alien or keycard gets a
+  glowing lens cut into it.
+- **Teleports and the portal:** aliens teleporting in and the portal itself swirl the air, with
+  particles spiralling inward.
 - **Gore and feedback:**
   - hit markers, a red kill marker, and a brief slow-motion on every kill
   - bullet holes, scorch marks and alien-blood splatter that stay on walls and floors
   - limbs that come off, and big or explosive kills that blow aliens into chunks that bounce and settle
+  - ragdoll deaths: killed aliens go limp and are thrown along the killing blow (explosions launch
+    them), tumbling and sprawling over the floor and against walls
 - **Audio:**
   - every sound is synthesised: weapons, alien growls and screeches, doors, the elevator, klaxons, steam
   - positional sound
