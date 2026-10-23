@@ -611,6 +611,16 @@ void main(){
             }
         }
 
+        PaintGraffiti(lb, L);
+        BuildProps(L);
+        walls = wb.Build(gl); floors = fb.Build(gl); ceils = cb.Build(gl); crates = kb.Build(gl);
+        fixtures = lb.Build(gl); elevFloor = eb.Build(gl); pipes = pb.Build(gl);
+        BuildHive(L);
+    }
+
+    void BuildProps(Level L)
+    {
+        foreach (var m in new[] { props, propGlass, propBlink }) m?.Dispose();
         var prb = new MeshBuilder();
         var glb = new MeshBuilder();
         var blb = new MeshBuilder();
@@ -618,9 +628,45 @@ void main(){
         props = prb.Build(gl);
         propGlass = glb.Build(gl);
         propBlink = blb.Build(gl);
-        walls = wb.Build(gl); floors = fb.Build(gl); ceils = cb.Build(gl); crates = kb.Build(gl);
-        fixtures = lb.Build(gl); elevFloor = eb.Build(gl); pipes = pb.Build(gl);
-        BuildHive(L);
+    }
+
+    /// <summary>Story graffiti: the 5x7 font, one painted blob per pixel with a little jitter and the odd drip.</summary>
+    static void PaintGraffiti(MeshBuilder b, Level L)
+    {
+        var rng = new Random(L.Seed * 13 + 5);
+        bool alien = L.Number >= 26;
+        foreach (var (pos, n, text) in L.Graffiti)
+        {
+            var lines = text.Split('|');
+            int cols = lines.Max(l => l.Length);
+            float px = MathF.Min(0.06f, 3.5f / (cols * 6));
+            var right = Vector3.Normalize(Vector3.Cross(-n, Vector3.UnitY));
+            float lineH = px * 10;
+            float top = (lines.Length - 1) * lineH / 2 + px * 3.5f;
+            foreach (var (line, li) in lines.Select((l, i) => (l, i)))
+            {
+                float x0 = -line.Length * 6 * px / 2;
+                for (int ci = 0; ci < line.Length; ci++)
+                    for (int col = 0; col < 5; col++)
+                        for (int row = 0; row < 7; row++)
+                        {
+                            if (!Renderer2D.GlyphPixel(line[ci], col, row)) continue;
+                            float x = x0 + (ci * 6 + col + 0.5f) * px + ((float)rng.NextDouble() - 0.5f) * px * 0.3f;
+                            float y = top - li * lineH - (row + 0.5f) * px + ((float)rng.NextDouble() - 0.5f) * px * 0.3f;
+                            float s = px * (1.05f + (float)rng.NextDouble() * 0.35f);
+                            var c = pos + right * x + Vector3.UnitY * y + n * 0.004f;
+                            if (alien) b.Col(new Vector3(0.55f, 0.2f, 0.75f) * (0.8f + (float)rng.NextDouble() * 0.3f), 0.6f);
+                            else b.Col(new Vector3(0.42f, 0.05f, 0.03f) * (0.8f + (float)rng.NextDouble() * 0.4f));
+                            b.BoxC(c, Vector3.Abs(right * s + Vector3.UnitY * s + n * 0.006f));
+                            // paint runs: a thin drip below some of the bottom strokes
+                            if (row == 6 && rng.NextDouble() < 0.25)
+                            {
+                                float len = px * (1 + (float)rng.NextDouble() * 4);
+                                b.BoxC(c - Vector3.UnitY * (s / 2 + len / 2), Vector3.Abs(right * s * 0.3f + Vector3.UnitY * len + n * 0.006f));
+                            }
+                        }
+            }
+        }
     }
 
     /// <summary>Deep levels: glowing biolume patches on floors and ceilings and pulsing veins up the walls.</summary>
@@ -815,6 +861,8 @@ void main(){
                 lightCands.Add((pk.Pos + Vector3.UnitY * 0.5f, new Vector3(1f, 0.5f, 0.15f), 5, Vector3.Distance(cam, pk.Pos) - 5, Vector4.Zero, false));
             else if (pk.Kind == PickupKind.Key)
                 lightCands.Add((pk.Pos + Vector3.UnitY * 0.5f, Level.KeyColors[pk.Arg] * 0.9f, 5, Vector3.Distance(cam, pk.Pos) - 5, Vector4.Zero, false));
+            else if (pk.Kind == PickupKind.Log)
+                lightCands.Add((pk.Pos + Vector3.UnitY * 0.5f, new Vector3(0.3f, 0.75f, 1f) * 0.8f, 4, Vector3.Distance(cam, pk.Pos) - 5, Vector4.Zero, false));
             else if (pk.Kind == PickupKind.Upgrade)
                 lightCands.Add((pk.Pos + Vector3.UnitY * 0.5f, new Vector3(1f, 0.75f, 0.25f), 4.5f, Vector3.Distance(cam, pk.Pos) - 5, Vector4.Zero, false));
         foreach (var e in w.Enemies)
@@ -968,6 +1016,7 @@ void main(){
         var L = w.L;
         var P = w.P;
         if (builtFor != L) BuildLevel(L);
+        if (w.PropsDirty) { BuildProps(L); w.PropsDirty = false; }
 
         deathAnim = P.Dead ? MathF.Min(1, deathAnim + dt * 1.5f) : 0;
         var eye = P.Eye;
@@ -1253,6 +1302,20 @@ void main(){
             if (pk.Kind == PickupKind.Upgrade) Billboard(pk.Pos + Vector3.UnitY * 0.25f, 1.3f + MathF.Sin(t * 4) * 0.15f, new Vector4(1f, 0.75f, 0.2f, 0.4f));
             if (pk.Kind == PickupKind.DamageAmp) Billboard(pk.Pos + Vector3.UnitY * (0.1f + MathF.Sin(pk.Phase * 2.2f) * 0.1f), 1.6f + MathF.Sin(t * 6) * 0.2f, new Vector4(1f, 0.5f, 0.1f, 0.5f));
             if (pk.Kind == PickupKind.MegaHealth || pk.Kind == PickupKind.Cells) Billboard(pk.Pos + Vector3.UnitY * 0.1f, 0.9f, new Vector4(0.3f, 0.9f, 1f, 0.3f));
+            if (pk.Kind == PickupKind.Log) Billboard(pk.Pos + Vector3.UnitY * 0.15f, 1.0f + MathF.Sin(t * 3) * 0.12f, new Vector4(0.35f, 0.85f, 1f, 0.35f));
+        }
+        // story objective consoles: a blinking amber beacon until switched on, then steady green
+        for (int i = 0; i < w.ObjDone.Length; i++)
+        {
+            var op = L.Props[L.ObjectiveProps[i]];
+            var at = op.Pos + new Vector3(0, op.Height + 0.45f + MathF.Sin(t * 2 + i) * 0.06f, 0);
+            if (w.ObjDone[i]) Billboard(at, 0.6f, new Vector4(0.3f, 1f, 0.45f, 0.7f));
+            else
+            {
+                float k = 0.5f + 0.5f * MathF.Sin(t * 6 + i);
+                Billboard(at, 0.9f + 0.3f * k, new Vector4(1f, 0.7f, 0.15f, 0.4f + 0.5f * k));
+                Billboard(at, 0.35f, new Vector4(1f, 0.95f, 0.7f, 0.9f));
+            }
         }
         foreach (var e in w.Enemies)
         {

@@ -261,6 +261,7 @@ public partial class World
                 powerState = 1; powerT = 0;
                 Snd.Play("powerdown", null, 0.9f, 1, 0);
                 Message("POWER FAILURE! EMERGENCY LIGHTING ONLY", new Vector4(1f, 0.55f, 0.2f, 1));
+                Cue(Game.Cue.PowerFail);
                 break;
             case 1:   // dying flicker
                 PowerLevel = powerT < 1.4f ? (Rng.NextDouble() < 0.5 ? 0.1f : 0.85f) * (1 - powerT / 1.4f) : 0;
@@ -273,6 +274,7 @@ public partial class World
                     powerState = 3; powerT = 0;
                     Snd.Play("powerup", null, 0.9f, 1, 0);
                     Message("POWER RESTORED", new Vector4(0.6f, 0.9f, 1f, 1));
+                    Cue(Game.Cue.PowerOn);
                 }
                 break;
             case 3:   // stuttering back on
@@ -294,6 +296,7 @@ public partial class World
             int cells = L.Path(px, py, L.ExitX, L.ExitY, null)?.Count ?? 30;
             SelfDestructT = Math.Clamp(cells * Level.CS / 6.2f * 2.2f + 45, 80, 220);
             Message("SELF-DESTRUCT ACTIVATED! GET TO THE ELEVATOR!", new Vector4(1f, 0.25f, 0.2f, 1));
+            Cue(Game.Cue.SelfDestruct);
             Snd.Play("alarm", null, 0.8f, 1, 0);
             klaxonT = 3;
             return;

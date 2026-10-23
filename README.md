@@ -3,7 +3,8 @@
 <img src="Assets/icon.png" width="128" alt="Alien Invasion icon">
 
 A 3D FPS in C# (.NET 10) + OpenGL 3.3 (Silk.NET) + OpenAL. Fight down through 30 sublevels
-of an overrun military bunker and destroy the alien portal at the bottom.
+of an overrun military bunker and destroy the alien portal at the bottom. A full story plays out
+as you descend: radio messages, recovered data pads, scripted events and an epilogue (see [GUIDE.md](GUIDE.md#the-story)).
 Every texture, model, sound effect and music track is generated procedurally at runtime — no asset files.
 Even the app icon is drawn in code (`Game/GameIcon.cs`); `Assets/` only holds the exported copies
 that the app bundle and `.exe` need.
@@ -66,7 +67,7 @@ wheel/Q/RMB cycle weapon · RMB zoom (sniper rifle) · F flashlight · N night v
     --featuretest    headless checks of aliens, hazards, events, bosses, upgrades, gore, scoring
     --makeicons DIR  export the icon as icon.png, a macOS .iconset and a Windows .ico
                      (then: iconutil -c icns DIR/AlienInvasion.iconset -o Assets/AlienInvasion.icns)
-    --shot FILE.png [--shotframe N] [--shotmode play|map|gallery|secret|secretopen|beacon|beaconcrowd|beaconflash|behindwall|barrels|bossgallery|lockdown|vent|hazard|blackout|complete|controls|hurt|blast|ragdoll|scope|fire]   screenshot and exit
+    --shot FILE.png [--shotframe N] [--shotmode play|map|gallery|secret|secretopen|beacon|beaconcrowd|beaconflash|behindwall|barrels|bossgallery|lockdown|vent|hazard|blackout|complete|controls|hurt|blast|ragdoll|scope|fire|briefing|comms|whisper|intel|epilogue|credits|tank|graffiti|objective]   screenshot and exit
 
 ## Layout
 - `Engine/` — GL wrappers + mesh builder, procedural textures, 2D/HUD renderer with built-in font,

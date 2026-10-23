@@ -26,7 +26,7 @@ public partial class World
         if (!bossAnnounced)
         {
             bossAnnounced = true;
-            Message($"WARNING: {e.D.Name}!", new Vector4(1f, 0.35f, 0.25f, 1));
+            OnBossAnnounced(e);
             Snd.Play(e.D.Growl, e.Mid, 1f, 0.8f);
         }
         e.AltCd -= dt;
@@ -187,7 +187,8 @@ public partial class World
 
     void BossDefeated(Enemy e)
     {
-        Message($"{e.D.Name} DESTROYED! THE ELEVATOR IS UNLOCKED", new Vector4(1f, 0.85f, 0.3f, 1));
+        Message($"{BossTitle ?? e.D.Name} DESTROYED! THE ELEVATOR IS UNLOCKED", new Vector4(1f, 0.85f, 0.3f, 1));
+        Cue(Game.Cue.BossDead);
         Snd.Play("bigboom", e.Mid, 1f, 1.2f);
         Explosion(e.Mid, 4, 0, true, 2, false);
         foreach (var m in bossMinions) if (!m.Dead) { m.Hp = 0; KillEnemy(m, Vector3.UnitY); }

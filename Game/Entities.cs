@@ -26,6 +26,10 @@ public class Player
     public float NVCharge, XRayCharge;
     public bool Dead;
     public float StepAccum;
+    // story progress for the run
+    public List<int> Logs = new();  // data pads read (indexes into Story.Logs)
+    public int SeenMask, KilledMask; // alien types seen (radio comment played) / killed (xeno file unlocked)
+    public bool ReactorScrammed;
     public const float Radius = 0.4f, EyeHeight = 1.65f;
 
     public Vector3 Eye => Pos + new Vector3(0, EyeHeight + MathF.Sin(Bob * 2) * 0.05f * BobAmount, 0);
@@ -45,6 +49,9 @@ public class Player
         Array.Clear(Ammo);
         Array.Clear(Has);
         Array.Clear(Upgraded);
+        Logs.Clear();
+        SeenMask = KilledMask = 0;
+        ReactorScrammed = false;
         Has[Weapons.Knife] = Has[Weapons.Pistol] = true;
         Ammo[Weapons.Bullets] = 60;
         Weapon = Pending = Weapons.Pistol;
@@ -53,7 +60,8 @@ public class Player
     public PlayerSnapshot Snapshot() => new()
     {
         Health = Health, Armor = Armor, Ammo = (int[])Ammo.Clone(), Has = (bool[])Has.Clone(), Weapon = Weapon, Backpack = Backpack,
-        HasNV = HasNV, HasXRay = HasXRay, NVCharge = NVCharge, XRayCharge = XRayCharge, Upgraded = (bool[])Upgraded.Clone()
+        HasNV = HasNV, HasXRay = HasXRay, NVCharge = NVCharge, XRayCharge = XRayCharge, Upgraded = (bool[])Upgraded.Clone(),
+        Logs = Logs.ToArray(), SeenMask = SeenMask, KilledMask = KilledMask, ReactorScrammed = ReactorScrammed
     };
 
     public void Restore(PlayerSnapshot s)
@@ -67,6 +75,8 @@ public class Player
         Upgraded = new bool[Weapons.Count];
         if (s.Upgraded != null) Array.Copy(s.Upgraded, Upgraded, Math.Min(s.Upgraded.Length, Weapons.Count));
         ZoomT = 0;
+        Logs = s.Logs?.Where(i => i >= 0 && i < Story.Logs.Length).Distinct().ToList() ?? new();
+        SeenMask = s.SeenMask; KilledMask = s.KilledMask; ReactorScrammed = s.ReactorScrammed;
         HasNV = s.HasNV; HasXRay = s.HasXRay; NVCharge = s.NVCharge; XRayCharge = s.XRayCharge;
         NVOn = XRayOn = false;
         if (Weapon < 0 || Weapon >= Weapons.Count || !Has[Weapon]) Weapon = Pending = Weapons.Pistol;
@@ -87,6 +97,10 @@ public class PlayerSnapshot
     public float NVCharge { get; set; }
     public float XRayCharge { get; set; }
     public bool[] Upgraded { get; set; } = new bool[Weapons.Count];
+    public int[] Logs { get; set; } = Array.Empty<int>();
+    public int SeenMask { get; set; }
+    public int KilledMask { get; set; }
+    public bool ReactorScrammed { get; set; }
 }
 
 public enum EState { Patrol, Idle, Chase, Windup, Pain, Dead }

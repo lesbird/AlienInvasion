@@ -23,7 +23,7 @@ public class Door
     public bool Locked => (Key >= 0 || Secret) && !Unlocked;
 }
 
-public enum PickupKind { Health, Medkit, MegaHealth, Armor, ArmorVest, Bullets, Shells, Grenades, Rockets, Cells, Weapon, Key, Backpack, DamageAmp, NightVision, XRay, Battery, Upgrade }
+public enum PickupKind { Health, Medkit, MegaHealth, Armor, ArmorVest, Bullets, Shells, Grenades, Rockets, Cells, Weapon, Key, Backpack, DamageAmp, NightVision, XRay, Battery, Upgrade, Log }
 
 public struct ItemSpawn { public PickupKind Kind; public int Arg; public int X, Y; }
 public struct EnemySpawn { public int Type; public int X, Y; }
@@ -287,6 +287,7 @@ public partial class Level
         PlaceSecrets();
         PlaceHazards();
         PlaceLights();
+        PlaceStory();
         SetAtmosphere();
 
         // face toward the room's most open direction

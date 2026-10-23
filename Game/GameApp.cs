@@ -8,7 +8,7 @@ using Silk.NET.Windowing;
 
 namespace AlienInvasion.Game;
 
-public enum GameState { Title, Controls, Playing, Paused, LevelComplete, Victory }
+public enum GameState { Title, Controls, Briefing, Playing, Paused, Intel, LevelComplete, Victory, Credits }
 
 public class SaveData
 {
@@ -33,7 +33,7 @@ public class Options
     public int Weapon = -1;
 }
 
-public class GameApp
+public partial class GameApp
 {
     static readonly string[] AreaNames =
     {
@@ -160,6 +160,7 @@ public class GameApp
             if (opt.ShotMode == "hurt") { world.God = true; player.Health = 16; player.HurtFlash = 0.7f; }
             if (opt.ShotMode == "blast") { world.God = true; world.Explosion(player.Eye + player.Forward * 7 - Vector3.UnitY, 5, 0, false, 0); }
             if (opt.ShotMode == "blackout") { world.ForcePowerFailure(); world.God = true; }
+            SetupStoryView(opt.ShotMode);
             player.Yaw += opt.YawOffset;
             if (opt.Goggles == "nv") { player.HasNV = true; player.NVCharge = Player.GoggleMax; player.NVOn = true; }
             if (opt.Goggles == "xray") { player.HasXRay = true; player.XRayCharge = Player.GoggleMax; player.XRayOn = true; }
@@ -530,8 +531,10 @@ public class GameApp
             case GameState.Controls:
                 if (Pressed(Key.Escape, Key.Enter, Key.Space) || mouseLPressed) { state = GameState.Title; snd.Play("menu"); }
                 break;
+            case GameState.Briefing: UpdateBriefing(); break;
             case GameState.Playing: UpdatePlaying(dt); break;
             case GameState.Paused: UpdatePaused(); break;
+            case GameState.Intel: UpdateIntel(); break;
             case GameState.LevelComplete:
                 world.Update(dt, new InputState { Select = -1 });
                 if (stateT > 3.5f && (Pressed(Key.Enter, Key.Space, Key.E) || mouseLPressed))
@@ -542,11 +545,19 @@ public class GameApp
                 break;
             case GameState.Victory:
                 world.Update(dt, new InputState { Select = -1 });
-                if (stateT > 4 && (Pressed(Key.Enter, Key.Space, Key.Escape) || mouseLPressed))
+                if (Pressed(Key.Enter, Key.Space, Key.Escape) || mouseLPressed)
                 {
-                    try { File.Delete(SavePath); } catch { }
-                    GoTitle();
+                    if (!EpilogueDone) stateT = EpilogueLineStart(Story.Epilogue.Length) + 1.01f;
+                    else
+                    {
+                        try { File.Delete(SavePath); } catch { }
+                        state = GameState.Credits;
+                        stateT = 0;
+                    }
                 }
+                break;
+            case GameState.Credits:
+                if (Pressed(Key.Enter, Key.Space, Key.Escape) || mouseLPressed) GoTitle();
                 break;
         }
 
@@ -593,7 +604,7 @@ public class GameApp
         {
             snd.Play("weapon");
             var it = items[menuIdx];
-            if (it == "NEW GAME") NewGame();
+            if (it == "NEW GAME") StartBriefing();
             else if (it.StartsWith("CONTINUE")) ContinueGame();
             else if (it == "CONTROLS") state = GameState.Controls;
             else if (it == "QUIT") window.Close();
@@ -602,7 +613,7 @@ public class GameApp
 
     void UpdatePaused()
     {
-        string[] items = { "RESUME", "RESTART SUBLEVEL", "QUIT TO TITLE" };
+        string[] items = { "RESUME", "INTEL", "RESTART SUBLEVEL", "QUIT TO TITLE" };
         if (Pressed(Key.Escape)) { state = GameState.Playing; SetCapture(true); return; }
         if (Pressed(Key.Up, Key.W)) { menuIdx = (menuIdx + items.Length - 1) % items.Length; snd.Play("menu"); }
         if (Pressed(Key.Down, Key.S)) { menuIdx = (menuIdx + 1) % items.Length; snd.Play("menu"); }
@@ -610,7 +621,8 @@ public class GameApp
         {
             snd.Play("menu");
             if (menuIdx == 0) { state = GameState.Playing; SetCapture(true); }
-            else if (menuIdx == 1) RestartLevel();
+            else if (menuIdx == 1) { state = GameState.Intel; intelIdx = 0; }
+            else if (menuIdx == 2) RestartLevel();
             else GoTitle();
         }
     }
@@ -698,7 +710,7 @@ public class GameApp
         if (W <= 0 || H <= 0) return;
         float dt = MathF.Min((float)dtd, 0.05f);
 
-        if (state == GameState.Title || state == GameState.Controls)
+        if (state is GameState.Title or GameState.Controls or GameState.Briefing or GameState.Credits)
         {
             renderer.Render(titleWorld, W, H, time, dt);
             DrawTitle(W, H);
@@ -740,6 +752,7 @@ public class GameApp
         "GOGGLES RUN ON BATTERIES - PICK UP SPARES.",
         "REACH THE ELEVATOR TO DESCEND. 30 SUBLEVELS.",
         "DESTROY THE ALIEN PORTAL AT THE BOTTOM.",
+        "PAUSE > INTEL: REREAD DATA PADS AND XENO FILES.",
     };
 
     /// <summary>Controls screen: a framed panel with two aligned key/action columns and the mission briefing.</summary>
@@ -817,6 +830,12 @@ public class GameApp
         if (state == GameState.Controls)
         {
             DrawControls(W, H, s, pulse);
+            return;
+        }
+        if (state is GameState.Briefing or GameState.Credits)
+        {
+            if (state == GameState.Briefing) DrawBriefing(W, H, s); else DrawCredits(W, H, s);
+            ui.End();
             return;
         }
         ui.Text("ALIEN INVASION", W / 2f, H * 0.16f, 11 * s, C(0.4f * pulse, 1f * pulse, 0.5f * pulse), 1);
@@ -978,7 +997,7 @@ public class GameApp
         if (world.Boss is { } boss && boss.Alerted && !boss.Dead && Vector3.Distance(boss.Pos, P.Pos) < 50)
         {
             float bw = 460 * s, bx = W / 2f - bw / 2, by = 118 * s;
-            ui.Text(boss.D.Name, W / 2f, by - 20 * s, 2.5f * s, C(1f, 0.55f, 0.35f), 1);
+            ui.Text(world.BossTitle ?? boss.D.Name, W / 2f, by - 20 * s, 2.5f * s, C(1f, 0.55f, 0.35f), 1);
             ui.Rect(bx, by, bw, 14 * s, C(0, 0, 0, 0.6f));
             ui.Rect(bx, by, bw * Math.Clamp(boss.Hp / boss.MaxHp, 0, 1), 14 * s, C(0.9f, 0.2f, 0.12f, 0.9f));
             ui.RectOutline(bx, by, bw, 14 * s, 2 * s, C(1f, 0.6f, 0.4f, 0.7f));
@@ -1036,6 +1055,7 @@ public class GameApp
         if (world.AtElevator && state == GameState.Playing)
             ui.Text("PRESS E TO TAKE THE ELEVATOR DOWN", W / 2f, H * 0.58f, 3 * s, C(0.4f, 1f, 0.5f, 0.7f + 0.3f * MathF.Sin(time * 6)), 1);
 
+        if (state is GameState.Playing or GameState.Paused) DrawStoryHud(W, H, s, barH);
         if (showMap) DrawMap(W, H, s);
 
         if (P.Dead && state == GameState.Playing)
@@ -1049,7 +1069,7 @@ public class GameApp
         {
             ui.Rect(0, 0, W, H, C(0, 0, 0, 0.6f));
             ui.Text("PAUSED", W / 2f, H * 0.28f, 8 * s, C(0.5f, 1f, 0.5f), 1);
-            string[] items = { "RESUME", "RESTART SUBLEVEL", "QUIT TO TITLE" };
+            string[] items = { "RESUME", "INTEL", "RESTART SUBLEVEL", "QUIT TO TITLE" };
             for (int i = 0; i < items.Length; i++)
             {
                 bool sel = i == menuIdx;
@@ -1064,6 +1084,19 @@ public class GameApp
             if (stateT > 0.8f)
             {
                 ui.Text($"SUBLEVEL {L.Number} CLEARED", W / 2f, H * 0.12f, 6 * s, C(0.5f, 1f, 0.5f), 1);
+                int logsHere = Story.LogCount(L.Number);
+                if (logsHere > 0)
+                {
+                    int got = player.Logs.Count(i => Story.Logs[i].Level == L.Number);
+                    ui.Text($"INTEL RECOVERED {got}/{logsHere}", W / 2f, H * 0.12f + 58 * s, 2.2f * s, got == logsHere ? C(0.45f, 0.9f, 1f) : C(0.6f, 0.7f, 0.75f), 1);
+                }
+                if (stateT > 3.5f && Story.For(L.Number).Outro is { } outro)
+                {
+                    var oc = Story.Color(outro.Who);
+                    string text = Story.Name(outro.Who) + ": " + outro.Text;
+                    float oy = H * 0.855f;
+                    foreach (var ol in Wrap(Typed(text, stateT - 3.5f, 45), (int)(W * 0.8f / (6 * 2.2f * s)))) { ui.Text(ol, W / 2f, oy, 2.2f * s, oc, 1); oy += 22 * s; }
+                }
                 DrawResult(result, W, H, s);
                 // elevator descending indicator
                 float depth = (L.Number + MathF.Min(1, stateT / 3.5f)) / 30f;
@@ -1071,20 +1104,12 @@ public class GameApp
                 ui.Rect(gx, gy, 400 * s, 10 * s, C(0.2f, 0.2f, 0.2f));
                 ui.Rect(gx, gy, 400 * s * depth, 10 * s, C(0.3f, 0.9f, 0.4f));
                 ui.Text(stateT < 3.5f ? "DESCENDING..." : $"NEXT: {AreaNames[Math.Min(30, L.Number + 1)]}", W / 2f, gy + 24 * s, 2.5f * s, C(0.7f, 0.9f, 0.7f), 1);
-                if (stateT > 3.5f) ui.Text("PRESS ENTER TO CONTINUE", W / 2f, H * 0.9f, 3 * s, C(1, 1, 0.5f, 0.6f + 0.4f * MathF.Sin(time * 4)), 1);
+                if (stateT > 3.5f) ui.Text("PRESS ENTER TO CONTINUE", W / 2f, H * 0.93f, 3 * s, C(1, 1, 0.5f, 0.6f + 0.4f * MathF.Sin(time * 4)), 1);
             }
         }
 
-        if (state == GameState.Victory)
-        {
-            float k = MathF.Min(1, stateT / 2f);
-            ui.Rect(0, 0, W, H, C(0, 0, 0, k * 0.85f));
-            ui.Text("MISSION ACCOMPLISHED", W / 2f, H * 0.2f, 7 * s, C(0.5f, 1, 0.5f, k), 1);
-            ui.Text("THE PORTAL HAS COLLAPSED. THE INVASION IS OVER.", W / 2f, H * 0.36f, 3 * s, C(0.9f, 0.9f, 0.8f, k), 1);
-            ui.Text("EARTH IS SAFE... FOR NOW.", W / 2f, H * 0.36f + 36 * s, 3 * s, C(0.9f, 0.9f, 0.8f, k), 1);
-            ui.Text($"FINAL SCORE  {runScore:N0}", W / 2f, H * 0.36f + 84 * s, 4 * s, C(1f, 0.85f, 0.4f, k), 1);
-            if (stateT > 4) ui.Text("PRESS ENTER", W / 2f, H * 0.75f, 3 * s, C(1, 1, 0.5f, 0.6f + 0.4f * MathF.Sin(time * 4)), 1);
-        }
+        if (state == GameState.Intel) DrawIntel(W, H, s);
+        if (state == GameState.Victory) DrawEpilogue(W, H, s);
         ui.End();
     }
 

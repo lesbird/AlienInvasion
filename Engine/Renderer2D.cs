@@ -144,6 +144,14 @@ void main(){ FragColor = texture(uTex,vUV)*vColor; }";
         idx.Add(i0); idx.Add(i0 + 1); idx.Add(i0 + 2);
     }
 
+    /// <summary>Whether a pixel of the 5x7 glyph for ch is set (used to paint graffiti in the world).</summary>
+    public static bool GlyphPixel(char ch, int col, int row)
+    {
+        int g = char.ToUpperInvariant(ch) - 32;
+        if (g < 0 || g >= GlyphCount || col < 0 || col >= 5 || row < 0 || row >= 7) return false;
+        return (FontData[g * 5 + col] & (1 << row)) != 0;
+    }
+
     public static float TextWidth(string s, float scale) => s.Length * CellW * scale - scale;
 
     /// <summary>align: 0 left, 1 center, 2 right.</summary>

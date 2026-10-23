@@ -92,8 +92,9 @@ public partial class World
             PortalE = SpawnEnemy(EnemyDefs.Portal, Level.Center(L.ExitX, L.ExitY));
             PortalE.Invulnerable = true;
             PortalE.Yaw = 0;
-            int[,] offs = { { -3, -3 }, { 3, -3 }, { -3, 3 }, { 3, 3 } };
-            for (int i = 0; i < 4; i++)
+            int[,] offs = { { -3, -3 }, { 3, 3 }, { 3, -3 }, { -3, 3 } };
+            // shutting the reactor down on sublevel 22 leaves only two pylons powered
+            for (int i = 0; i < (P.ReactorScrammed ? 2 : 4); i++)
             {
                 int x = L.ExitX + offs[i, 0], y = L.ExitY + offs[i, 1];
                 if (!L.Floor(x, y) || L.Crate[L.Idx(x, y)]) { x = L.ExitX + offs[i, 0] / 2; y = L.ExitY + offs[i, 1] / 2; }
@@ -103,6 +104,7 @@ public partial class World
         TotalEnemies = Enemies.Count(e => !e.D.Stationary);
         InitHazards();
         InitBoss();
+        InitStory();
         RefreshLocked();
     }
 
@@ -164,6 +166,7 @@ public partial class World
         UpdateChunks(dt);
         UpdateShockwaves(dt);
         UpdatePortal(dt);
+        UpdateStory(dt);
 
         exploreT -= dt;
         if (exploreT <= 0) { exploreT = 0.2f; Explore(); }
@@ -254,7 +257,7 @@ public partial class World
         if (inp.Fire && P.Cooldown <= 0 && P.SwitchT < 0.25f && P.Pending == P.Weapon) Fire();
 
         P.AmpT = MathF.Max(0, P.AmpT - dt);
-        if (inp.UsePressed) TryOpenSecret();
+        if (inp.UsePressed && !TryObjective()) TryOpenSecret();
 
         var (cx, cy) = Level.CellOf(P.Pos);
         AtElevator = !L.IsFinal && cx == L.ExitX && cy == L.ExitY;
@@ -667,6 +670,7 @@ public partial class World
         e.State = EState.Dead;
         e.DeathT = 0;
         e.Hp = 0;
+        UnlockXeno(e);
         Snd.Play(e.D.Death, e.Mid, 1f, e.D.Radius > 0.8f ? 0.8f : 1f);
         if (!e.D.Stationary) Kills++;
         if (e.Type == EnemyDefs.Pylon)
@@ -677,6 +681,7 @@ public partial class World
             {
                 PortalE.Invulnerable = false;
                 Message("PORTAL SHIELD DOWN! DESTROY IT!", new Vector4(1, 0.4f, 1, 1));
+                Cue(Game.Cue.ShieldDown);
             }
             else Message($"PYLON DESTROYED - {left} REMAINING", new Vector4(0.9f, 0.6f, 1, 1));
             return;
@@ -686,6 +691,7 @@ public partial class World
             VictoryT = 0;
             Snd.SetLoop(null, Vector3.Zero, 0);
             Message("THE PORTAL HAS BEEN DESTROYED!", new Vector4(0.6f, 1, 0.6f, 1));
+            Cue(Game.Cue.PortalDown);
             foreach (var x in Enemies) if (!x.Dead && x != e) { x.Hp = 0; KillEnemy(x, Vector3.UnitY); }
             return;
         }
@@ -1514,7 +1520,10 @@ public partial class World
                 P.Keys[pk.Arg] = true;
                 Message($"PICKED UP THE {Level.KeyNames[pk.Arg]} KEYCARD", new Vector4(Level.KeyColors[pk.Arg], 1));
                 Snd.Play("key", null, 0.9f);
+                Cue(Game.Cue.FirstKey);
                 return true;
+            case PickupKind.Log:
+                return TakeLog(pk.Arg);
         }
         return false;
     }

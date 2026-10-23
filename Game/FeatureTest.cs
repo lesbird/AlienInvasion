@@ -245,6 +245,68 @@ public static class FeatureTest
             w.Update(1 / 60f, new InputState { Select = -1, Fire = true });
             Check("bosses survive a sniper round but take its damage", !boss.Dead && hp0 - boss.Hp >= 200, $"{boss.D.Name} hp {hp0:F0} -> {boss.Hp:F0}");
         }
+        // ---------------- story ----------------
+        {
+            var w = Make(1, 1101, out var p);
+            Run(w, 2f);
+            Check("sublevel 1 opens with OVERWATCH on the radio", w.Comm is { Who: Speaker.Overwatch }, $"comm={w.Comm?.Text}");
+            int missing = 0;
+            for (int n = 1; n <= 30; n++)
+            {
+                var l = Level.Generate(n, 1200 + n);
+                if (l.Items.Count(it => it.Kind == PickupKind.Log) != Story.LogCount(n)) missing++;
+            }
+            Check("every sublevel holds its data pads", missing == 0, $"{missing} levels short");
+        }
+        {
+            var w = Make(2, 1102, out var p);
+            w.Enemies.Clear();
+            var pad = w.Pickups.First(x => x.Kind == PickupKind.Log);
+            p.Pos = pad.Pos with { Y = 0 };
+            Run(w, 0.2f);
+            var snap = p.Snapshot();
+            var p2 = new Player(); p2.ResetNew(); p2.Restore(snap);
+            Check("data pad is read, shown and saved", p.Logs.Contains(pad.Arg) && w.LogCardT > 0 && p2.Logs.Contains(pad.Arg), $"logs={string.Join(",", p.Logs)}");
+        }
+        static void UseConsoles(World w, Player p)
+        {
+            foreach (int pi in w.L.ObjectiveProps)
+            {
+                var pr = w.L.Props[pi];
+                var face = new Vector3(MathF.Sin(pr.Yaw), 0, MathF.Cos(pr.Yaw));
+                p.Pos = new Vector3(pr.Pos.X, 0, pr.Pos.Z) + face * (pr.Depth / 2 + 0.9f);
+                p.Yaw = MathF.Atan2(-face.X, face.Z);
+                w.Update(1 / 60f, new InputState { Select = -1 });
+                w.Update(1 / 60f, new InputState { Select = -1, UsePressed = true });
+            }
+        }
+        {
+            var w = Make(8, 1103, out var p);
+            w.Enemies.Clear();
+            UseConsoles(w, p);
+            Check("restarting the comm relays marks the elevator", w.L.ObjectiveProps.Count == 3 && w.ObjDoneCount == 3 && w.ExitMarked, $"consoles={w.L.ObjectiveProps.Count} done={w.ObjDoneCount}");
+        }
+        {
+            var w = Make(22, 1104, out var p);
+            w.Enemies.Clear();
+            UseConsoles(w, p);
+            var w30 = new World(Level.Generate(30, 1105), p, new SoundSystem());
+            int pylons = w30.Enemies.Count(e => e.Type == EnemyDefs.Pylon);
+            Check("scramming the reactor leaves two pylons at the Gate", p.ReactorScrammed && pylons == 2, $"scrammed={p.ReactorScrammed} pylons={pylons}");
+        }
+        {
+            var w = Make(18, 1106, out var p);
+            w.Enemies.Clear();
+            var tank = w.L.Props.FirstOrDefault(x => x.Kind == PropKind.Tank);
+            if (tank != null)
+            {
+                p.Pos = NearSpot(w, new Vector3(tank.Pos.X, 0, tank.Pos.Z), 3.5f);
+                w.LevelTime = 9;
+                Run(w, 0.5f);
+                Check("specimen tank bursts and something climbs out", tank.Dead && w.Enemies.Count(e => !e.Dead) >= 1, $"dead={tank.Dead} aliens={w.Enemies.Count}");
+            }
+            else Check("specimen tank bursts and something climbs out", false, "no tank on this seed");
+        }
         // ---------------- gore / feedback ----------------
         {
             var w = Make(6, 901, out var p);

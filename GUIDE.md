@@ -1,9 +1,10 @@
 # Alien Invasion — Operation Deep Descent: Game Guide
 
-An alien force has overrun a sprawling underground military bunker. You start at the surface
-access level and fight your way down through **30 sublevels**, collecting keycards, finding the
-exit elevator on each floor, and finally destroying the **portal** the aliens are pouring out of
-at the very bottom.
+**Hadal Station** is a classified research complex built 29 floors into the bedrock. Seventy-two
+hours ago it went silent; its last transmission was *"The Gate is open."* You are **NOMAD**, the
+only survivor of the recon team sent to find out why. You start at the surface access level and
+fight your way down through **30 sublevels**, collecting keycards, finding the exit elevator on
+each floor, and finally destroying the **Gate** the aliens are pouring out of at the very bottom.
 
 Everything in the game — every level layout, texture, 3D model, sound effect and music track — is
 generated procedurally when the game runs. No two playthroughs are the same.
@@ -12,21 +13,22 @@ generated procedurally when the game runs. No two playthroughs are the same.
 
 ## Contents
 1. [Controls](#controls)
-2. [How a sublevel works](#how-a-sublevel-works)
-3. [The descent: areas and themes](#the-descent-areas-and-themes)
-4. [Weapons](#weapons)
-5. [Weapon upgrades](#weapon-upgrades)
-6. [Pickups](#pickups)
-7. [Equipment: goggles and the flashlight](#equipment-goggles-and-the-flashlight)
-8. [Enemies](#enemies)
-9. [Mini-bosses](#mini-bosses)
-10. [The final battle](#the-final-battle)
-11. [Secrets](#secrets)
-12. [Hazards](#hazards)
-13. [Level events](#level-events)
-14. [Score and ranking](#score-and-ranking)
-15. [Presentation](#presentation)
-16. [Tips](#tips)
+2. [The story](#the-story)
+3. [How a sublevel works](#how-a-sublevel-works)
+4. [The descent: areas and themes](#the-descent-areas-and-themes)
+5. [Weapons](#weapons)
+6. [Weapon upgrades](#weapon-upgrades)
+7. [Pickups](#pickups)
+8. [Equipment: goggles and the flashlight](#equipment-goggles-and-the-flashlight)
+9. [Enemies](#enemies)
+10. [Mini-bosses](#mini-bosses)
+11. [The final battle](#the-final-battle)
+12. [Secrets](#secrets)
+13. [Hazards](#hazards)
+14. [Level events](#level-events)
+15. [Score and ranking](#score-and-ranking)
+16. [Presentation](#presentation)
+17. [Tips](#tips)
 
 ---
 
@@ -49,7 +51,7 @@ generated procedurally when the game runs. No two playthroughs are the same.
 | **B** | Bloom on/off |
 | **M** | Music on/off |
 | **F11** | Toggle fullscreen (the game starts fullscreen; `--windowed` to start in a window) |
-| **Esc** | Pause |
+| **Esc** | Pause (the pause menu has **INTEL**: recovered data pads and xeno files) |
 
 The same list, grouped into movement, combat, gear and system keys with a few quick tips, is on
 the **Controls** screen of the title menu.
@@ -57,6 +59,78 @@ the **Controls** screen of the title menu.
 The game autosaves at the start of every sublevel; **Continue** on the title screen resumes there.
 If you die, you restart the current sublevel with the health, armor, weapons and ammo you
 entered it with.
+
+---
+
+## The story
+
+### Backstory
+
+In 1979 a mining survey drilling deep under the mountains struck something that wasn't rock: a
+smooth, warm, humming structure that had been **deliberately buried** a very long time ago. The
+miners said they heard singing at night. The shaft was capped and reported, and the military
+built **Hadal Station** on top of it: a black-site research complex that eventually went 29 floors
+down. The artifact became known as **the Gate**.
+
+The lower half of the station belonged to **Project LANTERN**, which studied the Gate and a faint
+signal coming through it: four notes, on every channel at once. Staff who worked near it started
+to sleep badly, get nosebleeds and hum the same tune. LANTERN's lead scientist spent fourteen
+months decoding the signal.
+
+Under pressure to produce results, the station commander, **Colonel Marcus Hale**, authorized
+**Project THRESHOLD**: run the reactor at full power and force the Gate open. It opened, and it
+stayed open. Within hours the Hive poured up through the station. Hale sealed the blast doors
+rather than let anything reach the surface, trapping his own people inside. The station's last
+transmission, sent by a comms tech before the lines were cut, was four words: *"The Gate is open."*
+
+Seventy-two hours later, a four-person recon team was sent in. Their helicopter went down on the
+approach. You are the only survivor.
+
+### The cast
+
+| Character | Who they are |
+|---|---|
+| **NOMAD** | You. The last member of the recon team. You never speak. |
+| **OVERWATCH** (Major Elena Cross) | Your commander on the surface and your voice on the radio, until the rock gets too thick. |
+| **Dr. Ilse Kessler** | Lead scientist of Project LANTERN, somehow still alive on the lower levels. She knows the station better than anyone. |
+| **Col. Marcus Hale** | The station commander. Dead before you arrive, but his recordings, orders and one last failsafe are still down there. |
+| **Pvt. Danny Okafor** | A young soldier from the garrison. His diary follows the fall of the station floor by floor. |
+| **The Mind** | The Hive's group intelligence. It speaks through the Wraiths, and eventually to you. |
+
+The data pads fill in the rest: who knew what, what the specimen dates really show, and what is
+waiting at the bottom.
+
+### How it's told
+
+A new game opens with a **mission briefing**. From then on the story is told as you play:
+
+- **Radio messages** appear in a panel at the bottom left with the speaker's name. They never pause
+  the game. Early on you hear from **OVERWATCH** (Major Elena Cross, your commander on the surface).
+  Deeper down, another survivor makes contact: **Dr. Ilse Kessler**, the lead scientist of
+  Project LANTERN, who knows the lower levels better than anyone.
+- **The Mind**, the Hive's group intelligence, eventually starts talking too. Its words crawl across
+  the middle of the screen in purple.
+- **Data pads** (glowing blue slates, two on most sublevels, some hidden in secret stashes) hold
+  logs written by the station's staff before and during the disaster. Picking one up shows it on
+  the right of the screen. Reread any you've found in **Pause > INTEL**. The level summary shows
+  how many of the sublevel's data pads you recovered.
+- **Xeno files:** your first kill of each alien type adds its file to the INTEL screen.
+- **Boss cards:** each mini-boss is introduced by name when it spots you.
+- **Wall graffiti** left by the garrison hints at what happened on each floor.
+
+### Story events
+
+| Sublevel | Event |
+|---|---|
+| 8 | **Restart the comm relays** (optional): three consoles marked with blinking amber beacons. Face one and press **E**. Restarting all three lets OVERWATCH mark the elevator on your automap. |
+| 9 | The Hive is feeding on the power grid: a **power failure** is guaranteed. |
+| 16 | Radio contact with the surface is lost below the geothermal layer. |
+| 18, 19 | Some **specimen tanks** burst open as you approach, releasing what was inside. |
+| 22 | **Scram the reactor** (optional): drop the control rods at two consoles. The lights go out, but only **two** shield pylons will guard the Gate on sublevel 30 instead of four. |
+| 28, 29 | Colonel Hale's **Scorched Earth** failsafe: the self-destruct. |
+| 30 | The Gate. And Dr. Kessler. |
+
+Finish the campaign for the epilogue and credits. The story continues in a part 2.
 
 ---
 
@@ -268,11 +342,12 @@ kit or ammo backpack), a Xeno-Serum, a Kevlar Vest and two boxes of ammo for you
 
 ## The final battle
 
-**Sublevel 30, The Breach**, is a huge arena around the **Alien Portal**, a swirling vortex
-inside a ring of spikes. The portal is protected by a **shield** powered by **four Shield
-Pylons**, crystal towers linked to it by beams of energy.
+**Sublevel 30, The Breach**, is a huge arena around the **Alien Portal** (the Gate), a swirling
+vortex inside a ring of spikes. The portal is protected by a **shield** powered by **four Shield
+Pylons**, crystal towers linked to it by beams of energy. If you scrammed the reactor on
+sublevel 22, only **two** pylons are powered.
 
-1. Destroy all four pylons (600 health each) to drop the shield.
+1. Destroy all the pylons (600 health each) to drop the shield.
 2. Destroy the portal itself (3000 health).
 
 Meanwhile the portal keeps **summoning aliens**: one every 10 s while shielded, every 6.5 s
@@ -313,7 +388,7 @@ through the wall.
 
 ## Level events
 
-- **Power failure (about 40% of sublevels 6–27):** partway through the level the generators die.
+- **Power failure (about 40% of sublevels 6–27, and always on sublevel 9):** partway through the level the generators die.
   Lights flicker out, only pulsing **red emergency lamps** remain, and it stays dark for 35–55 s
   until the power stutters back. Night vision and the flashlight are your friends.
 - **Self-destruct (sublevels 28 and 29):** picking up the **last keycard** starts the base's

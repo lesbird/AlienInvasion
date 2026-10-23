@@ -177,6 +177,50 @@ public static class Synth
         return b;
     }
 
+    /// <summary>Radio squelch: a crackle of band-passed static and a two-tone chirp.</summary>
+    public static float[] Radio(int seed)
+    {
+        var r = new Random(seed);
+        var b = Buf(0.22f);
+        Svf f = new();
+        float ph = 0;
+        for (int i = 0; i < b.Length; i++)
+        {
+            float t = i / (float)Rate;
+            float n = f.BP((float)r.NextDouble() * 2 - 1, 2200, 1.5f) * (t < 0.08f ? 1 : MathF.Exp(-(t - 0.08f) * 40));
+            float hz = t < 0.12f ? 1500 : 2000;
+            ph += MathF.Tau * hz / Rate;
+            float chirp = t > 0.06f && t < 0.18f ? MathF.Sin(ph) * 0.35f : 0;
+            b[i] = n * 0.8f + chirp;
+        }
+        Normalize(b, 0.6f);
+        return b;
+    }
+
+    /// <summary>The Mind: a breathy swell of filtered noise over a slow, sour drone.</summary>
+    public static float[] Whisper(int seed)
+    {
+        var r = new Random(seed);
+        var b = Buf(1.8f);
+        Svf f = new(), f2 = new();
+        float ph = 0, ph2 = 0;
+        for (int i = 0; i < b.Length; i++)
+        {
+            float t = i / (float)Rate;
+            float env = MathF.Sin(MathF.PI * t / 1.8f);
+            env *= env;
+            float n = (float)r.NextDouble() * 2 - 1;
+            float breath = f.BP(n, 700 + 600 * MathF.Sin(t * 3.1f) + 300 * MathF.Sin(t * 11), 6) * (0.6f + 0.4f * MathF.Sin(t * 23));
+            float hiss = f2.HP(n, 5000) * 0.15f;
+            ph += MathF.Tau * (72 + 3 * MathF.Sin(t * 2)) / Rate;
+            ph2 += MathF.Tau * 101.5f / Rate;
+            float drone = (MathF.Sin(ph) + MathF.Sin(ph2) * 0.7f) * 0.25f;
+            b[i] = (breath + hiss + drone) * env;
+        }
+        Normalize(b, 0.7f);
+        return b;
+    }
+
     public static float[] Explosion(int seed, float dur = 1.6f)
     {
         var r = new Random(seed);

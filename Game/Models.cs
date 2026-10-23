@@ -305,6 +305,16 @@ public static class Models
                 b.Col(1f, 0.75f, 0.2f, 1f); b.BoxC(new(0, 0.18f, 0), new(0.22f, 0.04f, 0.16f));
                 b.Col(0.3f, 0.3f, 0.32f); b.BoxC(new(0, 0.24f, 0), new(0.18f, 0.03f, 0.04f));
                 break;
+            case PickupKind.Log:
+                // data pad: a rugged slate with a glowing screen of text lines
+                b.Transform = Matrix4x4.CreateRotationX(-0.35f);
+                b.Col(0.2f, 0.21f, 0.22f); b.BoxC(new(0, 0, 0), new(0.34f, 0.04f, 0.46f));
+                b.Col(0.3f, 0.85f, 1f, 0.9f); b.BoxC(new(0, 0.022f, -0.02f), new(0.28f, 0.006f, 0.34f));
+                b.Col(0.85f, 1f, 1f, 1f);
+                for (int i = 0; i < 5; i++) b.BoxC(new(-0.03f + (i % 2) * 0.02f, 0.027f, -0.15f + i * 0.06f), new(0.18f - (i % 2) * 0.05f, 0.004f, 0.015f));
+                b.Col(0.9f, 0.6f, 0.15f, 1f); b.BoxC(new(0.12f, 0.022f, 0.19f), new(0.03f, 0.008f, 0.03f));
+                b.Transform = Matrix4x4.Identity;
+                break;
             case PickupKind.Battery:
                 b.Col(0.15f, 0.15f, 0.16f); b.Cylinder(new(0, -0.18f, 0), 0.11f, 0.11f, 0.36f, 12);
                 b.Col(0.95f, 0.65f, 0.1f, 0.2f); b.Cylinder(new(0, 0.05f, 0), 0.115f, 0.115f, 0.13f, 12);
@@ -576,6 +586,25 @@ public static class Models
                     if (kind == 3) { b.Col(0.4f, 1f, 0.2f, 1f); b.Cylinder(sp + new Vector3(0, 1.1f, 0), 0.27f, 0.27f, 0.01f, 12); }
                     if (kind == 0) { b.Col(0.08f, 0.08f, 0.08f); b.Cylinder(sp + new Vector3(0, 0.5f, 0), 0.335f, 0.335f, 0.12f, 14, false); }
                 }
+                break;
+            }
+            case PropKind.Tank when p.Dead:
+            {
+                // burst open: frame, a ring of jagged glass and a drained, dripping interior
+                b.Col(dark); b.Cylinder(new(0, 0, 0), 0.9f, 0.9f, 0.35f, 18);
+                b.Col(dark); b.Cylinder(new(0, 3.05f, 0), 0.9f, 0.85f, 0.35f, 18);
+                b.Col(0.35f, 0.38f, 0.4f); b.Cylinder(new(0, 3.4f, 0), 0.12f, 0.12f, Level.WH - 3.4f, 8, false);
+                b.Col(0.2f, 0.7f, 0.35f, 0.5f); b.Cylinder(new(0, 0.35f, 0), 0.72f, 0.72f, 0.06f, 18);
+                for (int i = 0; i < 9; i++)
+                {
+                    float a = i * MathF.Tau / 9 + (float)r.NextDouble() * 0.3f, hgt = 0.25f + (float)r.NextDouble() * 0.9f;
+                    glass.Transform = Matrix4x4.CreateRotationZ(((float)r.NextDouble() - 0.5f) * 0.5f) * Matrix4x4.CreateRotationY(-a) * Matrix4x4.CreateTranslation(MathF.Cos(a) * 0.78f, 0.35f + hgt / 2, MathF.Sin(a) * 0.78f) * xf;
+                    glass.Col(0.7f, 0.9f, 1f); glass.BoxC(Vector3.Zero, new(0.03f, hgt, 0.3f + (float)r.NextDouble() * 0.2f));
+                    hgt = 0.15f + (float)r.NextDouble() * 0.5f;
+                    glass.Transform = Matrix4x4.CreateRotationZ(MathF.PI + ((float)r.NextDouble() - 0.5f) * 0.5f) * Matrix4x4.CreateRotationY(-a - 0.3f) * Matrix4x4.CreateTranslation(MathF.Cos(a + 0.3f) * 0.78f, 3.05f - hgt / 2, MathF.Sin(a + 0.3f) * 0.78f) * xf;
+                    glass.BoxC(Vector3.Zero, new(0.03f, hgt, 0.25f));
+                }
+                glass.Transform = xf;
                 break;
             }
             case PropKind.Tank:
