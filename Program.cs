@@ -20,6 +20,7 @@ static class Program
                 case "--noshadows": o.NoShadows = true; break;
                 case "--nobloom": o.NoBloom = true; break;
                 case "--noao": o.NoAO = true; break;
+                case "--windowed": o.Windowed = true; break;
                 case "--goggles": o.Goggles = Next(); break;
                 case "--yaw": o.YawOffset = float.Parse(Next(), System.Globalization.CultureInfo.InvariantCulture); break;
                 case "--weapon": o.Weapon = int.Parse(Next()); break;

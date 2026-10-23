@@ -26,7 +26,7 @@ public class Options
     public int ShotFrame = 90;
     public string ShotMode = "play";
     public int Seed = -1;
-    public bool NoShadows, NoBloom, NoAO;
+    public bool NoShadows, NoBloom, NoAO, Windowed;
     public string Goggles = "";
     public float YawOffset;
     public float SmokeSeconds;
@@ -105,6 +105,8 @@ public class GameApp
     {
         gl = window.CreateOpenGL();
         Console.WriteLine($"OpenGL: {gl.GetStringS(StringName.Version)} / {gl.GetStringS(StringName.Renderer)}");
+        // fullscreen by default; screenshots and smoke tests stay in a fixed 1280x720 window
+        if (!opt.Windowed && opt.ShotFile == null && opt.SmokeSeconds <= 0) window.WindowState = WindowState.Fullscreen;
         input = window.CreateInput();
         kb = input.Keyboards[0];
         mouse = input.Mice[0];

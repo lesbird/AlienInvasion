@@ -41,7 +41,7 @@ by hand: `gh workflow run release.yml --ref main -f tag=v1.2.0`.
 
 ## Controls
 WASD move · mouse look · LMB/Ctrl fire · Shift sprint · E/Space use elevator · 1–0, -, = weapons ·
-wheel/Q/RMB cycle weapon · RMB zoom (sniper rifle) · F flashlight · N night vision · X x-ray goggles · Tab automap · B bloom · M music · F11 fullscreen · Esc pause
+wheel/Q/RMB cycle weapon · RMB zoom (sniper rifle) · F flashlight · N night vision · X x-ray goggles · Tab automap · B bloom · M music · F11 fullscreen on/off (starts fullscreen) · Esc pause
 
 ## Debug / test flags
     --level N        start at sublevel N (with a depth-appropriate loadout)
@@ -54,6 +54,7 @@ wheel/Q/RMB cycle weapon · RMB zoom (sniper rifle) · F flashlight · N night v
     --noshadows      disable shadow maps (lights + flashlight)
     --nobloom        start with bloom off
     --noao           disable screen-space ambient occlusion (faster on slow GPUs)
+    --windowed       start in a window instead of fullscreen (F11 toggles in game)
     --goggles nv|xray  start with night vision / x-ray goggles switched on
     --yaw RADIANS    turn the starting view (for screenshots)
     --musictest DIR  render sample music tracks to WAV files

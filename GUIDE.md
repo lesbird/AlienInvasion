@@ -48,7 +48,7 @@ generated procedurally when the game runs. No two playthroughs are the same.
 | **Tab** | Automap |
 | **B** | Bloom on/off |
 | **M** | Music on/off |
-| **F11** | Fullscreen |
+| **F11** | Toggle fullscreen (the game starts fullscreen; `--windowed` to start in a window) |
 | **Esc** | Pause |
 
 The same list, grouped into movement, combat, gear and system keys with a few quick tips, is on
