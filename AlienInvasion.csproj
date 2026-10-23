@@ -9,6 +9,7 @@
     <RootNamespace>AlienInvasion</RootNamespace>
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <TieredPGO>true</TieredPGO>
+    <ApplicationIcon>Assets/AlienInvasion.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

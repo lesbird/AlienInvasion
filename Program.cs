@@ -33,6 +33,7 @@ static class Program
                 case "--secrettest": SecretTest(); return;
                 case "--barreltest": BarrelTest(); return;
                 case "--featuretest": FeatureTest.RunAll(); return;
+                case "--makeicons": GameIcon.MakeAll(Next()); return;
                 case "--bot":
                 {
                     int from = int.Parse(Next()), to = int.Parse(Next());

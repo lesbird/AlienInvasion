@@ -36,6 +36,32 @@ public static unsafe class Screenshot
         Chunk(fs, "IEND", Array.Empty<byte>());
     }
 
+    /// <summary>Writes top-down RGBA pixels as a PNG with alpha.</summary>
+    public static void WritePng(string path, byte[] rgba, int w, int h)
+    {
+        using var fs = File.Create(path);
+        WritePng(fs, rgba, w, h);
+    }
+
+    public static void WritePng(Stream fs, byte[] rgba, int w, int h)
+    {
+        var raw = new MemoryStream();
+        for (int y = 0; y < h; y++)
+        {
+            raw.WriteByte(0);
+            raw.Write(rgba, y * w * 4, w * 4);
+        }
+        var comp = new MemoryStream();
+        using (var z = new ZLibStream(comp, CompressionLevel.Optimal, true)) { raw.Position = 0; raw.CopyTo(z); }
+        fs.Write(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 });
+        var ihdr = new byte[13];
+        BE(ihdr, 0, w); BE(ihdr, 4, h);
+        ihdr[8] = 8; ihdr[9] = 6;
+        Chunk(fs, "IHDR", ihdr);
+        Chunk(fs, "IDAT", comp.ToArray());
+        Chunk(fs, "IEND", Array.Empty<byte>());
+    }
+
     static void BE(byte[] b, int o, int v) { b[o] = (byte)(v >> 24); b[o + 1] = (byte)(v >> 16); b[o + 2] = (byte)(v >> 8); b[o + 3] = (byte)v; }
 
     static void Chunk(Stream s, string type, byte[] data)

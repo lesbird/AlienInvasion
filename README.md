@@ -1,8 +1,12 @@
 # Alien Invasion — Operation Deep Descent
 
+<img src="Assets/icon.png" width="128" alt="Alien Invasion icon">
+
 A 3D FPS in C# (.NET 10) + OpenGL 3.3 (Silk.NET) + OpenAL. Fight down through 30 sublevels
 of an overrun military bunker and destroy the alien portal at the bottom.
 Every texture, model, sound effect and music track is generated procedurally at runtime — no asset files.
+Even the app icon is drawn in code (`Game/GameIcon.cs`); `Assets/` only holds the exported copies
+that the app bundle and `.exe` need.
 
 📖 **[Read the full game guide](GUIDE.md)**: controls, every weapon, upgrade, pickup, alien and boss, hazards, events and scoring.
 
@@ -60,6 +64,8 @@ wheel/Q/RMB cycle weapon · RMB zoom (sniper rifle) · F flashlight · N night v
     --musictest DIR  render sample music tracks to WAV files
     --barreltest     set off barrels next to an alien/the player and shoot one; prints the results
     --featuretest    headless checks of aliens, hazards, events, bosses, upgrades, gore, scoring
+    --makeicons DIR  export the icon as icon.png, a macOS .iconset and a Windows .ico
+                     (then: iconutil -c icns DIR/AlienInvasion.iconset -o Assets/AlienInvasion.icns)
     --shot FILE.png [--shotframe N] [--shotmode play|map|gallery|secret|secretopen|beacon|beaconcrowd|beaconflash|behindwall|barrels|bossgallery|lockdown|vent|hazard|blackout|complete|controls|hurt|blast|ragdoll|scope|fire]   screenshot and exit
 
 ## Layout

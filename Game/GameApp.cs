@@ -105,6 +105,12 @@ public class GameApp
     {
         gl = window.CreateOpenGL();
         Console.WriteLine($"OpenGL: {gl.GetStringS(StringName.Version)} / {gl.GetStringS(StringName.Renderer)}");
+        // title bar / taskbar icon (macOS takes the Dock icon from the app bundle instead)
+        if (!OperatingSystem.IsMacOS())
+        {
+            try { window.SetWindowIcon(new[] { 32, 64, 256 }.Select(s => new Silk.NET.Core.RawImage(s, s, GameIcon.Render(s))).ToArray()); }
+            catch (Exception e) { Console.WriteLine($"window icon: {e.Message}"); }
+        }
         // fullscreen by default; screenshots and smoke tests stay in a fixed 1280x720 window
         if (!opt.Windowed && opt.ShotFile == null && opt.SmokeSeconds <= 0) window.WindowState = WindowState.Fullscreen;
         input = window.CreateInput();
