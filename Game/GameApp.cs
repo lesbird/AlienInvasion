@@ -71,7 +71,7 @@ public class GameApp
     bool musicMuted;
 
     readonly HashSet<Key> held = new(), pressed = new();
-    bool mouseL, mouseLPressed, mouseRPressed;
+    bool mouseL, mouseR, mouseLPressed, mouseRPressed;
     Vector2 lastMouse;
     bool firstMouse = true, captured;
     float mdx, mdy, scroll;
@@ -110,8 +110,8 @@ public class GameApp
         mouse = input.Mice[0];
         kb.KeyDown += (_, k, _) => { held.Add(k); pressed.Add(k); };
         kb.KeyUp += (_, k, _) => held.Remove(k);
-        mouse.MouseDown += (_, b) => { if (b == MouseButton.Left) { mouseL = true; mouseLPressed = true; } if (b == MouseButton.Right) mouseRPressed = true; };
-        mouse.MouseUp += (_, b) => { if (b == MouseButton.Left) mouseL = false; };
+        mouse.MouseDown += (_, b) => { if (b == MouseButton.Left) { mouseL = true; mouseLPressed = true; } if (b == MouseButton.Right) { mouseR = true; mouseRPressed = true; } };
+        mouse.MouseUp += (_, b) => { if (b == MouseButton.Left) mouseL = false; if (b == MouseButton.Right) mouseR = false; };
         mouse.MouseMove += (_, p) =>
         {
             if (firstMouse) { lastMouse = p; firstMouse = false; return; }
@@ -424,6 +424,8 @@ public class GameApp
         player.Has[Weapons.GrenadeLauncher] = lvl > 7;
         player.Has[Weapons.RocketLauncher] = lvl > 11;
         player.Has[Weapons.Plasma] = lvl > 8;
+        player.Has[Weapons.Sniper] = lvl > 9;
+        player.Has[Weapons.Railgun] = lvl > 17;
         for (int i = 0; i < 5; i++) player.Ammo[i] = Weapons.MaxAmmo[i] / 2;
         player.Armor = 50;
         // goggles turn up in the secret stashes of sublevels 2 and 5
@@ -626,14 +628,20 @@ public class GameApp
             inp.NVToggle = Pressed(Key.N);
             inp.XRayToggle = Pressed(Key.X);
             float turn = (Held(Key.Right) ? 1 : 0) - (Held(Key.Left) ? 1 : 0);
-            inp.LookX = mdx * Sensitivity + turn * dt * 2.4f;
-            inp.LookY = mdy * Sensitivity;
-            Key[] nums = { Key.Number1, Key.Number2, Key.Number3, Key.Number4, Key.Number5, Key.Number6, Key.Number7, Key.Number8, Key.Number9, Key.Number0 };
+            float look = 1 / world.ZoomMag;   // slower aim through the scope
+            inp.LookX = (mdx * Sensitivity + turn * dt * 2.4f) * look;
+            inp.LookY = mdy * Sensitivity * look;
+            Key[] nums = { Key.Number1, Key.Number2, Key.Number3, Key.Number4, Key.Number5, Key.Number6, Key.Number7, Key.Number8, Key.Number9, Key.Number0, Key.Minus, Key.Equal };
             for (int i = 0; i < nums.Length; i++) if (pressed.Contains(nums[i])) inp.Select = i;
+            // right mouse zooms a scoped weapon, otherwise it cycles weapons
+            bool scoped = Weapons.All[player.Weapon].Zoom > 0;
+            inp.Zoom = scoped && mouseR;
             if (scroll > 0.1f || Pressed(Key.Q)) inp.Cycle = -1;
-            if (scroll < -0.1f || mouseRPressed) inp.Cycle = 1;
+            if (scroll < -0.1f || (mouseRPressed && !scoped)) inp.Cycle = 1;
         }
         if (opt.SmokeSeconds > 0) SmokeInput(ref inp, dt);
+        if (opt.ShotMode == "scope") inp.Zoom = true;
+        if (opt.ShotMode == "fire" && opt.ShotFrame - frame is > 0 and < 8) inp.Fire = true;
         if (opt.ShotMode.EndsWith("gallery") || opt.ShotMode.StartsWith("beacon") || opt.ShotMode == "behindwall" || opt.ShotMode == "barrels" || opt.ShotMode.StartsWith("secret")) { world.Time += dt; return; }
         world.TickRealTime(dt);
         world.Update(dt * world.TimeScale, inp);
@@ -708,7 +716,7 @@ public class GameApp
         new[]
         {
             ("MOVEMENT", new[] { ("WASD / ARROWS", "MOVE / TURN"), ("MOUSE", "LOOK"), ("SHIFT", "SPRINT"), ("E / SPACE", "USE / SEARCH WALLS") }),
-            ("COMBAT", new[] { ("LMB / CTRL", "FIRE"), ("1 - 0", "SELECT WEAPON"), ("WHEEL / Q / RMB", "CYCLE WEAPON") }),
+            ("COMBAT", new[] { ("LMB / CTRL", "FIRE"), ("1 - 0, -, =", "SELECT WEAPON"), ("WHEEL / Q / RMB", "CYCLE WEAPON"), ("RMB (SNIPER)", "ZOOM SCOPE") }),
         },
         new[]
         {
@@ -818,6 +826,45 @@ public class GameApp
         ui.End();
     }
 
+    /// <summary>Sniper scope: black surround, a round lens with fine crosshairs and mil-dots.</summary>
+    void DrawScope(int W, int H, float s, float a)
+    {
+        float cx = W / 2f, cy = H / 2f, r = H * 0.42f;
+        var black = C(0, 0, 0, a);
+        ui.Rect(0, 0, cx - r, H, black);
+        ui.Rect(cx + r, 0, W - cx - r, H, black);
+        // a ring of quads from the lens edge outwards blacks out the rest of the centre strip
+        const int seg = 64;
+        for (int i = 0; i < seg; i++)
+        {
+            float a0 = i * MathF.Tau / seg, a1 = (i + 1) * MathF.Tau / seg;
+            var d0 = new Vector2(MathF.Cos(a0), MathF.Sin(a0)); var d1 = new Vector2(MathF.Cos(a1), MathF.Sin(a1));
+            var c = new Vector2(cx, cy);
+            ui.Tri(c + d0 * r, c + d0 * r * 2, c + d1 * r * 2, black);
+            ui.Tri(c + d0 * r, c + d1 * r * 2, c + d1 * r, black);
+        }
+        // lens rim
+        for (int i = 0; i < seg; i++)
+        {
+            float a0 = i * MathF.Tau / seg, a1 = (i + 1) * MathF.Tau / seg;
+            Line(new Vector2(cx + MathF.Cos(a0) * r, cy + MathF.Sin(a0) * r), new Vector2(cx + MathF.Cos(a1) * r, cy + MathF.Sin(a1) * r), 4 * s, C(0.05f, 0.06f, 0.05f, a));
+        }
+        // reticle: thick outer posts, thin centre lines and mil-dots
+        var rc = C(0.02f, 0.02f, 0.02f, 0.9f * a);
+        float thin = MathF.Max(1, 1.2f * s), thick = 4 * s, gap = r * 0.45f;
+        ui.Rect(cx - r, cy - thick / 2, r - gap, thick, rc); ui.Rect(cx + gap, cy - thick / 2, r - gap, thick, rc);
+        ui.Rect(cx - thick / 2, cy + gap, thick, r - gap, rc);
+        ui.Rect(cx - gap, cy - thin / 2, gap * 2, thin, rc);
+        ui.Rect(cx - thin / 2, cy - r, thin, r + gap, rc);
+        for (int i = 1; i <= 4; i++)
+        {
+            float d = gap * i / 4.5f, ds = 3 * s;
+            ui.Rect(cx + d - ds / 2, cy - ds / 2, ds, ds, rc); ui.Rect(cx - d - ds / 2, cy - ds / 2, ds, ds, rc);
+            ui.Rect(cx - ds / 2, cy + d - ds / 2, ds, ds, rc);
+        }
+        ui.Rect(cx - 1.5f * s, cy - 1.5f * s, 3 * s, 3 * s, C(1f, 0.2f, 0.15f, a));
+    }
+
     void DrawHud(int W, int H)
     {
         float s = H / 720f;
@@ -832,9 +879,13 @@ public class GameApp
         {
             // crosshair
             float cx = W / 2f, cy = H / 2f, g = 5 * s, l = 9 * s, th = MathF.Max(1, 2 * s);
-            var cc = C(0.6f, 1f, 0.6f, 0.85f);
-            ui.Rect(cx - g - l, cy - th / 2, l, th, cc); ui.Rect(cx + g, cy - th / 2, l, th, cc);
-            ui.Rect(cx - th / 2, cy - g - l, th, l, cc); ui.Rect(cx - th / 2, cy + g, th, l, cc);
+            if (P.ZoomT > 0.5f) DrawScope(W, H, s, (P.ZoomT - 0.5f) * 2);
+            else
+            {
+                var cc = C(0.6f, 1f, 0.6f, 0.85f);
+                ui.Rect(cx - g - l, cy - th / 2, l, th, cc); ui.Rect(cx + g, cy - th / 2, l, th, cc);
+                ui.Rect(cx - th / 2, cy - g - l, th, l, cc); ui.Rect(cx - th / 2, cy + g, th, l, cc);
+            }
             // hit / kill marker: a diagonal X around the crosshair
             if (world.HitMarkerT > 0 || world.KillMarkerT > 0)
             {
@@ -880,7 +931,7 @@ public class GameApp
             bool cur = P.Weapon == i;
             if (cur) ui.Rect(x + 2 * s, H - barH + 34 * s, slotW - 4 * s, 28 * s, C(0.3f, 0.8f, 0.4f, 0.35f));
             var col = !have ? C(0.25f, 0.25f, 0.25f) : P.Upgraded[i] ? C(1f, 0.78f, 0.3f) : Weapons.All[i].Alien ? C(0.75f, 0.55f, 1f) : C(0.85f, 0.85f, 0.85f);
-            ui.Text(((i + 1) % 10).ToString(), x + slotW / 2, H - barH + 40 * s, 2.5f * s, col, 1);
+            ui.Text(i < 10 ? ((i + 1) % 10).ToString() : i == 10 ? "-" : "=", x + slotW / 2, H - barH + 40 * s, 2.5f * s, col, 1);
         }
         ui.Text(L.Number == 30 ? "THE BREACH" : $"SUBLEVEL {L.Number:00}/30", W / 2f, H - barH + 10 * s, 2 * s, C(0.6f, 0.8f, 0.6f), 1);
 

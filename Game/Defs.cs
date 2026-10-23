@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace AlienInvasion.Game;
 
-public enum FireMode { Melee, Hitscan, Projectile, Arc }
+public enum FireMode { Melee, Hitscan, Projectile, Arc, Rail }
 
 public enum ProjKind { None, Grenade, Rocket, Plasma, Acid, Void, EnemyAcid, EnemyPlasma, EnemyOrb, BruteOrb }
 
@@ -28,6 +28,8 @@ public class WeaponDef
     public float Noise = 25;
     public int Chains = 3;         // arc caster jumps
     public bool Twin, Cluster;     // upgrade specials
+    public bool OneShot;           // kills any regular alien outright; bosses and structures take Damage
+    public float Zoom;             // right-click scope magnification, 0 = none
 
     public WeaponDef Clone() => (WeaponDef)MemberwiseClone();
 }
@@ -35,7 +37,7 @@ public class WeaponDef
 public static class Weapons
 {
     public const int Knife = 0, Pistol = 1, Shotgun = 2, Rifle = 3, GrenadeLauncher = 4, RocketLauncher = 5,
-        Plasma = 6, BioLauncher = 7, ArcCaster = 8, VoidCannon = 9, Count = 10;
+        Plasma = 6, BioLauncher = 7, ArcCaster = 8, VoidCannon = 9, Sniper = 10, Railgun = 11, Count = 12;
 
     public const int Bullets = 0, Shells = 1, Grenades = 2, Rockets = 3, Cells = 4;
     public static readonly int[] MaxAmmo = { 300, 60, 40, 30, 400 };
@@ -47,6 +49,7 @@ public static class Weapons
     {
         "VIBRO-BLADE", "MAGNUM ROUNDS", "DRAGON'S BREATH SHELLS", "RAPID FIRE MOD", "CLUSTER GRENADES",
         "TWIN ROCKETS", "OVERCHARGED CELLS", "CORROSIVE MIX", "CHAIN STORM", "STABILISED CORE",
+        "STRAIGHT-PULL BOLT", "CAPACITOR BANK",
     };
 
     static WeaponDef[] upgraded;
@@ -67,6 +70,8 @@ public static class Weapons
             case BioLauncher: d.Splash *= 1.6f; d.Damage *= 1.3f; break;
             case ArcCaster: d.Chains = 6; d.Range = 32; break;
             case VoidCannon: d.AmmoPerShot = 10; d.Rate = 0.9f; break;
+            case Sniper: d.Rate = 1.4f; d.Zoom = 6; break;
+            case Railgun: d.AmmoPerShot = 6; d.Rate = 1.0f; break;
         }
         return d;
     }
@@ -83,6 +88,8 @@ public static class Weapons
         new() { Name = "BIO-ACID LAUNCHER", Ammo = Cells, AmmoPerShot = 2, Rate = 2.6f, Damage = 45, Splash = 2.6f, Mode = FireMode.Projectile, Proj = ProjKind.Acid, ProjSpeed = 30, Sound = "acidfire", Alien = true, Recoil = 0.08f, Flash = new(0.5f, 1f, 0.2f), PickupAmmo = 60 },
         new() { Name = "ARC CASTER", Ammo = Cells, Rate = 12f, Damage = 12, Mode = FireMode.Arc, Sound = "zap", Alien = true, Recoil = 0.01f, Flash = new(0.5f, 0.6f, 1f), PickupAmmo = 80, Range = 24 },
         new() { Name = "VOID CANNON", Ammo = Cells, AmmoPerShot = 15, Rate = 0.6f, Damage = 400, Splash = 7f, Mode = FireMode.Projectile, Proj = ProjKind.Void, ProjSpeed = 18, Sound = "void", Alien = true, Recoil = 0.3f, Flash = new(0.8f, 0.3f, 1f), PickupAmmo = 60 },
+        new() { Name = "SR-50 SNIPER RIFLE", Ammo = Bullets, AmmoPerShot = 2, Rate = 0.8f, Damage = 220, Spread = 0.035f, Mode = FireMode.Hitscan, Sound = "sniper", Recoil = 0.22f, PickupAmmo = 20, Range = 250, Noise = 40, OneShot = true, Zoom = 4 },
+        new() { Name = "RAIL GUN", Ammo = Cells, AmmoPerShot = 10, Rate = 0.65f, Damage = 300, Mode = FireMode.Rail, Sound = "rail", Recoil = 0.25f, Flash = new(0.4f, 0.75f, 1f), PickupAmmo = 50, Range = 250, Noise = 35, OneShot = true },
     };
 }
 

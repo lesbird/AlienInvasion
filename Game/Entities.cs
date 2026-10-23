@@ -15,6 +15,7 @@ public class Player
     public float SwitchT;           // 0 = raised; >0 lowering/raising
     public bool[] Keys = new bool[4];
     public float Cooldown, Recoil, Bob, BobAmount, HurtFlash, PickupFlash, Shake, KnifeT, FireFlash;
+    public float ZoomT;             // 0..1, scope zoom-in (sniper rifle)
     public float Heat;   // 0..1, builds up with sustained fire; the barrel glows and shimmers
     public bool Flashlight = true;
     public bool Backpack;           // +50% ammo capacity
@@ -37,7 +38,7 @@ public class Player
     public void ResetNew()
     {
         Backpack = false;
-        AmpT = 0;
+        AmpT = ZoomT = 0;
         HasNV = HasXRay = NVOn = XRayOn = false;
         NVCharge = XRayCharge = 0;
         Health = 100; Armor = 0;
@@ -58,10 +59,14 @@ public class Player
     public void Restore(PlayerSnapshot s)
     {
         Health = MathF.Max(s.Health, 50); Armor = s.Armor;
-        Ammo = (int[])s.Ammo.Clone(); Has = (bool[])s.Has.Clone();
+        Ammo = (int[])s.Ammo.Clone();
+        // saves from before a weapon was added have shorter arrays
+        Has = new bool[Weapons.Count]; Array.Copy(s.Has, Has, Math.Min(s.Has.Length, Weapons.Count));
         Weapon = Pending = s.Weapon;
         Backpack = s.Backpack;
-        Upgraded = s.Upgraded != null && s.Upgraded.Length == Weapons.Count ? (bool[])s.Upgraded.Clone() : new bool[Weapons.Count];
+        Upgraded = new bool[Weapons.Count];
+        if (s.Upgraded != null) Array.Copy(s.Upgraded, Upgraded, Math.Min(s.Upgraded.Length, Weapons.Count));
+        ZoomT = 0;
         HasNV = s.HasNV; HasXRay = s.HasXRay; NVCharge = s.NVCharge; XRayCharge = s.XRayCharge;
         NVOn = XRayOn = false;
         if (Weapon < 0 || Weapon >= Weapons.Count || !Has[Weapon]) Weapon = Pending = Weapons.Pistol;

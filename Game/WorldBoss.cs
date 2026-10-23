@@ -193,7 +193,7 @@ public partial class World
         foreach (var m in bossMinions) if (!m.Dead) { m.Hp = 0; KillEnemy(m, Vector3.UnitY); }
         // guaranteed reward: a weapon the player is missing, else an upgrade, else a backpack
         var drops = new List<(PickupKind k, int arg)> { (PickupKind.MegaHealth, 0), (PickupKind.ArmorVest, 0) };
-        int[] tier = { Weapons.Shotgun, Weapons.Rifle, Weapons.GrenadeLauncher, Weapons.Plasma, Weapons.RocketLauncher, Weapons.BioLauncher, Weapons.ArcCaster, Weapons.VoidCannon };
+        int[] tier = { Weapons.Shotgun, Weapons.Rifle, Weapons.GrenadeLauncher, Weapons.Plasma, Weapons.RocketLauncher, Weapons.Sniper, Weapons.BioLauncher, Weapons.ArcCaster, Weapons.Railgun, Weapons.VoidCannon };
         int missing = tier.FirstOrDefault(w => !P.Has[w], -1);
         if (missing >= 0) drops.Add((PickupKind.Weapon, missing));
         else

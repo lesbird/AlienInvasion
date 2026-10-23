@@ -39,8 +39,9 @@ generated procedurally when the game runs. No two playthroughs are the same.
 | **Left click** / **Ctrl** | Fire |
 | **Shift** | Sprint |
 | **E** / **Space** | Use: ride the elevator, search walls for secret panels |
-| **1 – 0** | Select weapon |
+| **1 – 0**, **-**, **=** | Select weapon |
 | **Mouse wheel** / **Q** / **right click** | Cycle weapons |
+| **Right click** (hold, sniper rifle) | Zoom the scope (replaces cycling while the sniper rifle is out) |
 | **F** | Flashlight on/off |
 | **N** | Night-vision goggles on/off |
 | **X** | X-ray goggles on/off |
@@ -105,9 +106,9 @@ of glowing alien egg pods. Furniture is solid cover; low furniture (desks, table
 
 ## Weapons
 
-Weapons are picked up along the way and kept for the rest of the run. Four are guaranteed:
-the **shotgun on sublevel 2**, the **assault rifle on 4**, the **grenade launcher on 7** and the
-**rocket launcher on 11**. Others turn up as random pickups, in secret stashes, as mini-boss loot,
+Weapons are picked up along the way and kept for the rest of the run. Six are guaranteed:
+the **shotgun on sublevel 2**, the **assault rifle on 4**, the **grenade launcher on 7**, the
+**sniper rifle on 9**, the **rocket launcher on 11** and the **rail gun on 17**. Others turn up as random pickups, in secret stashes, as mini-boss loot,
 or are **dropped by aliens** (the alien weapons).
 
 | # | Weapon | Ammo (per shot) | Damage | Fire rate | Notes |
@@ -122,6 +123,8 @@ or are **dropped by aliens** (the alien weapons).
 | 8 | **Bio-Acid Launcher** *(alien)* | Cells (2) | 45, 2.6 m splash | 2.6 /s | Arcing acid globs. Dropped by Spitters. |
 | 9 | **Arc Caster** *(alien)* | Cells (1) | 12 | 12 /s | Lightning that locks onto a target within 24 m and **chains to 3 more** (−25% per jump). Dropped by Wraiths. |
 | 0 | **Void Cannon** *(alien)* | Cells (15) | 400, 7 m blast | 0.6 /s | A slow black singularity that obliterates groups. Dropped by Brutes and Overseers. |
+| - | **SR-50 Sniper Rifle** | Bullets (2) | **One-shot kill** (220 vs bosses) | 0.8 /s | Hold **right click** to zoom 4×. Pinpoint accurate when scoped, wild from the hip. |
+| = | **Rail Gun** | Cells (10) | **One-shot kill** (300 vs bosses) | 0.65 /s | Hitscan slug that **pierces every alien on the line** until it hits a wall. |
 
 **Ammo capacity:** 300 bullets, 60 shells, 40 grenades, 30 rockets, 400 cells
 (×1.5 with the Ammo Backpack).
@@ -129,6 +132,9 @@ or are **dropped by aliens** (the alien weapons).
 Your own explosions hurt you too, at reduced strength (40%). When a weapon runs dry the game
 switches to your best weapon that still has ammo. Firing makes noise that alerts nearby aliens
 (the knife is silent).
+
+**One-shot kills:** the sniper rifle and rail gun kill any regular alien outright, Brutes and
+Overseers included. Bosses, shield pylons and the portal take the listed damage instead.
 
 ---
 
@@ -150,6 +156,8 @@ Upgraded weapons show in **gold with a "+"** on the HUD.
 | Bio-Acid Launcher | **Corrosive Mix** | +30% damage, +60% splash radius |
 | Arc Caster | **Chain Storm** | Chains to 6 targets, 32 m range |
 | Void Cannon | **Stabilised Core** | 10 cells per shot (from 15), 50% faster |
+| SR-50 Sniper Rifle | **Straight-Pull Bolt** | 1.4 shots/s (from 0.8), 6× scope |
+| Rail Gun | **Capacitor Bank** | 6 cells per shot (from 10), 1 shot/s |
 
 ---
 

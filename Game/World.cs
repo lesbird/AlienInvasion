@@ -6,7 +6,7 @@ namespace AlienInvasion.Game;
 public struct InputState
 {
     public float Forward, Strafe, LookX, LookY;
-    public bool Sprint, Fire, UsePressed, FlashToggle, NVToggle, XRayToggle;
+    public bool Sprint, Fire, Zoom, UsePressed, FlashToggle, NVToggle, XRayToggle;
     public int Select, Cycle;
 }
 
@@ -246,6 +246,10 @@ public partial class World
         }
         else P.SwitchT = MathF.Max(0, P.SwitchT - dt * 5);
 
+        // scope: hold right mouse with a zoomable weapon raised
+        bool scoped = inp.Zoom && Weapons.All[P.Weapon].Zoom > 0 && P.Pending == P.Weapon && P.SwitchT < 0.25f;
+        P.ZoomT = GMath.Approach(P.ZoomT, scoped ? 1 : 0, dt * (scoped ? 6 : 9));
+
         P.Cooldown -= dt;
         if (inp.Fire && P.Cooldown <= 0 && P.SwitchT < 0.25f && P.Pending == P.Weapon) Fire();
 
@@ -291,7 +295,7 @@ public partial class World
 
     public int BestWeapon()
     {
-        int[] pref = { Weapons.Plasma, Weapons.Rifle, Weapons.Shotgun, Weapons.ArcCaster, Weapons.BioLauncher, Weapons.Pistol, Weapons.RocketLauncher, Weapons.GrenadeLauncher, Weapons.VoidCannon, Weapons.Knife };
+        int[] pref = { Weapons.Plasma, Weapons.Rifle, Weapons.Shotgun, Weapons.ArcCaster, Weapons.BioLauncher, Weapons.Pistol, Weapons.RocketLauncher, Weapons.GrenadeLauncher, Weapons.Sniper, Weapons.Railgun, Weapons.VoidCannon, Weapons.Knife };
         foreach (var w in pref)
         {
             var def = Weapons.All[w];
@@ -308,6 +312,12 @@ public partial class World
         float a = (float)Rng.NextDouble() * MathF.Tau, r = MathF.Sqrt((float)Rng.NextDouble()) * amount;
         return Vector3.Normalize(dir + right * MathF.Cos(a) * r + up * MathF.Sin(a) * r);
     }
+
+    /// <summary>Current scope magnification (1 = no zoom).</summary>
+    public float ZoomMag => 1 + MathF.Max(0, Weapons.Get(P.Weapon, P.Upgraded[P.Weapon]).Zoom - 1) * P.ZoomT;
+
+    /// <summary>One-shot weapons kill any regular alien outright; bosses and structures take the listed damage.</summary>
+    static float ShotDamage(Enemy e, float dmg, bool oneShot) => oneShot && !e.D.Boss && !e.D.Stationary ? MathF.Max(dmg, e.Hp + 1) : dmg;
 
     public Vector3 Muzzle => P.Eye + P.Forward * 0.7f + P.Right * 0.2f - Vector3.UnitY * 0.15f;
 
@@ -366,8 +376,18 @@ public partial class World
             }
             case FireMode.Hitscan:
                 ShotsFired += w.Pellets;
+            {
+                // a scoped weapon is dead accurate zoomed in and sloppy from the hip
+                float spread = w.Zoom > 0 ? w.Spread * (1 - P.ZoomT) : w.Spread + P.Recoil * 0.05f;
                 for (int i = 0; i < w.Pellets; i++)
-                    HitScan(eye, Spread(fwd, w.Spread + P.Recoil * 0.05f), w.Damage, P.Weapon == Weapons.Rifle);
+                    HitScan(eye, Spread(fwd, spread), w.Damage, P.Weapon == Weapons.Rifle || P.Weapon == Weapons.Sniper, w.OneShot);
+                if (w.OneShot) P.Shake = MathF.Max(P.Shake, 0.35f);
+                break;
+            }
+            case FireMode.Rail:
+                ShotsFired++;
+                RailFire(eye, fwd, w);
+                P.Shake = MathF.Max(P.Shake, 0.5f);
                 break;
             case FireMode.Projectile:
             {
@@ -423,7 +443,7 @@ public partial class World
         return RayAabb(o, d, min, max, out t);
     }
 
-    void HitScan(Vector3 o, Vector3 d, float dmg, bool tracer)
+    void HitScan(Vector3 o, Vector3 d, float dmg, bool tracer, bool oneShot = false)
     {
         float wallT = L.Raycast(o, d, 250, out var n);
         Enemy best = null;
@@ -450,7 +470,7 @@ public partial class World
         else if (best != null)
         {
             ShotsHit++;
-            DamageEnemy(best, dmg, d);
+            DamageEnemy(best, ShotDamage(best, dmg, oneShot), d);
             if (best.D.Stationary) Sparks(hit, -d, 6, new Vector4(0.8f, 0.4f, 1f, 1));
             else
             {
@@ -464,7 +484,59 @@ public partial class World
             Puff(hit + n * 0.1f, 0.3f, new Vector4(0.6f, 0.6f, 0.6f, 0.35f));
             if (wallT < 250) AddDecal(hit, n, 0.13f + (float)Rng.NextDouble() * 0.05f, 0, new Vector4(1, 1, 1, 0.95f));
         }
-        if (tracer) Beams.Add(new Beam { A = Muzzle, B = hit, Color = new Vector4(1f, 0.85f, 0.4f, 0.35f), Width = 0.025f, Life = 0.05f, MaxLife = 0.05f });
+        if (tracer) Beams.Add(new Beam { A = Muzzle, B = hit, Color = new Vector4(1f, 0.85f, 0.4f, 0.35f), Width = oneShot ? 0.04f : 0.025f, Life = oneShot ? 0.12f : 0.05f, MaxLife = oneShot ? 0.12f : 0.05f });
+    }
+
+    /// <summary>Rail gun: a slug that punches through every alien on the line until it hits a wall.</summary>
+    void RailFire(Vector3 eye, Vector3 fwd, WeaponDef w)
+    {
+        float wallT = L.Raycast(eye, fwd, w.Range, out var n);
+        var hits = new List<(Enemy e, float t)>();
+        foreach (var e in Enemies)
+        {
+            if (e.Dead || e.Hidden) continue;
+            if (RayEnemy(eye, fwd, e, out float t) && t < wallT) hits.Add((e, t));
+        }
+        if (hits.Count > 0) ShotsHit++;
+        foreach (var (e, t) in hits.OrderBy(h => h.t))
+        {
+            var at = eye + fwd * t;
+            DamageEnemy(e, ShotDamage(e, w.Damage, w.OneShot), fwd);
+            if (e.D.Stationary) Sparks(at, -fwd, 10, new Vector4(0.6f, 0.8f, 1f, 1));
+            else
+            {
+                Blood(at, fwd * 3, 10);
+                SplatterBehind(at + fwd * e.D.Radius, fwd);
+            }
+        }
+        var end = eye + fwd * wallT;
+        var barrel = BarrelOnRay(eye, fwd, wallT);
+        if (barrel != null) DamageBarrel(barrel, w.Damage);
+        if (wallT < w.Range)
+        {
+            Sparks(end + n * 0.05f, n, 14, new Vector4(0.5f, 0.8f, 1f, 1));
+            Puff(end + n * 0.1f, 0.6f, new Vector4(0.6f, 0.7f, 0.8f, 0.4f));
+            if (barrel == null) AddDecal(end, n, 0.3f, 1, new Vector4(1, 1, 1, 0.9f));
+            DynLights.Add(new DynLight { Pos = end + n * 0.3f, Color = new Vector3(0.6f, 1.2f, 2.5f), Radius = 6, Life = 0.25f, MaxLife = 0.25f });
+        }
+
+        // the trail: a hot core, a wide glow and a corkscrew of sparks that linger and drift
+        var from = Muzzle;
+        Beams.Add(new Beam { A = from, B = end, Color = new Vector4(0.3f, 0.6f, 1f, 0.5f), Width = 0.22f, Life = 0.45f, MaxLife = 0.45f });
+        Beams.Add(new Beam { A = from, B = end, Color = new Vector4(0.9f, 0.97f, 1f, 1f), Width = 0.05f, Life = 0.3f, MaxLife = 0.3f });
+        var dir = end - from;
+        float len = dir.Length();
+        if (len < 0.01f) return;
+        dir /= len;
+        var side = Vector3.Normalize(Vector3.Cross(dir, Vector3.UnitY) + new Vector3(0.001f));
+        var up = Vector3.Cross(side, dir);
+        int steps = Math.Min(260, (int)(len / 0.12f));
+        for (int i = 0; i < steps; i++)
+        {
+            float d = i * 0.12f, a = d * 3.2f;
+            var off = (side * MathF.Cos(a) + up * MathF.Sin(a)) * 0.09f;
+            AddParticle(new Particle { Pos = from + dir * d + off, Vel = off * 2.5f, Color = new(0.45f, 0.75f, 1f, 0.8f), Size = 0.07f, Grow = 0.12f, Life = 0.6f + (float)Rng.NextDouble() * 0.3f, Drag = 2, Additive = true });
+        }
     }
 
     void ArcFire(Vector3 eye, Vector3 fwd, WeaponDef w)

@@ -154,6 +154,29 @@ public static class Synth
         return b;
     }
 
+    /// <summary>Rail gun: a capacitor snap and a sizzling electric crack with a falling ring-out.</summary>
+    public static float[] Railgun(int seed)
+    {
+        var r = new Random(seed);
+        var b = Buf(1.1f);
+        float ph = 0, ph2 = 0;
+        Svf f = new(), f2 = new();
+        for (int i = 0; i < b.Length; i++)
+        {
+            float t = i / (float)Rate;
+            float n = (float)r.NextDouble() * 2 - 1;
+            float crack = f.HP(n, 2500) * MathF.Exp(-t * 18) * 1.4f;
+            float sizzle = f2.BP(n, 5000 * MathF.Exp(-t * 2) + 1500, 4) * MathF.Exp(-t * 4) * 0.8f;
+            ph += MathF.Tau * (2400 * MathF.Exp(-t * 5) + 120) / Rate;
+            ph2 += MathF.Tau * 55 / Rate;
+            float ring = MathF.Sin(ph) * MathF.Exp(-t * 3.5f) * 0.45f;
+            float thump = MathF.Sin(ph2) * MathF.Exp(-t * 9) * 0.9f;
+            b[i] = (crack + sizzle + ring + thump) * Env(t, 0.001f, 2.2f);
+        }
+        Normalize(b);
+        return b;
+    }
+
     public static float[] Explosion(int seed, float dur = 1.6f)
     {
         var r = new Random(seed);

@@ -192,6 +192,8 @@ public static class SoundBank
             () => Add("zap", Synth.Zap(10)),
             () => Add("zap", Synth.Zap(11)),
             () => Add("void", Synth.VoidCannon(12)),
+            () => Add("sniper", Synth.Gunshot(1.1f, 60, 7500, 4, 1.4f, 16)),
+            () => Add("rail", Synth.Railgun(17)),
             () => Add("explode", Synth.Explosion(13)),
             () => Add("explode", Synth.Explosion(14, 1.4f)),
             () => Add("clink", Synth.Clink(15)),

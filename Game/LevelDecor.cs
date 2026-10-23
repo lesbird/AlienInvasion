@@ -278,6 +278,8 @@ public partial class Level
             if (Number >= 9) pool.Add(Weapons.RocketLauncher);
             if (Number >= 6) pool.Add(Weapons.Plasma);
             if (Number >= 14) pool.Add(Weapons.ArcCaster);
+            if (Number >= 8) pool.Add(Weapons.Sniper);
+            if (Number >= 16) pool.Add(Weapons.Railgun);
             Put(PickupKind.Weapon, pool[rng.Next(pool.Count)]);
         }
         Put(rng.NextDouble() < 0.3 ? PickupKind.MegaHealth : PickupKind.Medkit);

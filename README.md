@@ -40,8 +40,8 @@ by hand: `gh workflow run release.yml --ref main -f tag=v1.2.0`.
     ./run.sh --level 10 --god # any flags below are passed through
 
 ## Controls
-WASD move · mouse look · LMB/Ctrl fire · Shift sprint · E/Space use elevator · 1–0 weapons ·
-wheel/Q/RMB cycle weapon · F flashlight · N night vision · X x-ray goggles · Tab automap · B bloom · M music · F11 fullscreen · Esc pause
+WASD move · mouse look · LMB/Ctrl fire · Shift sprint · E/Space use elevator · 1–0, -, = weapons ·
+wheel/Q/RMB cycle weapon · RMB zoom (sniper rifle) · F flashlight · N night vision · X x-ray goggles · Tab automap · B bloom · M music · F11 fullscreen · Esc pause
 
 ## Debug / test flags
     --level N        start at sublevel N (with a depth-appropriate loadout)
@@ -59,7 +59,7 @@ wheel/Q/RMB cycle weapon · F flashlight · N night vision · X x-ray goggles ·
     --musictest DIR  render sample music tracks to WAV files
     --barreltest     set off barrels next to an alien/the player and shoot one; prints the results
     --featuretest    headless checks of aliens, hazards, events, bosses, upgrades, gore, scoring
-    --shot FILE.png [--shotframe N] [--shotmode play|map|gallery|secret|secretopen|beacon|beaconcrowd|beaconflash|behindwall|barrels|bossgallery|lockdown|vent|hazard|blackout|complete|controls|hurt|blast|ragdoll]   screenshot and exit
+    --shot FILE.png [--shotframe N] [--shotmode play|map|gallery|secret|secretopen|beacon|beaconcrowd|beaconflash|behindwall|barrels|bossgallery|lockdown|vent|hazard|blackout|complete|controls|hurt|blast|ragdoll|scope|fire]   screenshot and exit
 
 ## Layout
 - `Engine/` — GL wrappers + mesh builder, procedural textures, 2D/HUD renderer with built-in font,

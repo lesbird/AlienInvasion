@@ -165,6 +165,41 @@ public static class Models
                 if (withHands) Hands(b, 0.16f, -0.2f, -0.1f);
                 muzzle = new(0, 0.02f, -0.45f);
                 break;
+            case Weapons.Sniper:
+                b.Col(Olive); b.BoxC(new(0, 0, 0.02f), new(0.06f, 0.085f, 0.4f));
+                b.Col(Gun); b.CylinderZ(new(0, 0.01f, -0.18f), 0.014f, 0.014f, 0.62f, 8);
+                b.Col(Gun); b.CylinderZ(new(0, 0.01f, -0.8f), 0.022f, 0.022f, 0.08f, 8);              // muzzle brake
+                b.Col(0.1f, 0.1f, 0.1f); b.CylinderZ(new(0, 0.085f, 0.12f), 0.03f, 0.03f, 0.3f, 12);   // scope tube
+                b.CylinderZ(new(0, 0.085f, -0.18f), 0.03f, 0.04f, 0.05f, 12);
+                b.CylinderZ(new(0, 0.085f, 0.16f), 0.036f, 0.03f, 0.04f, 12);
+                b.Col(0.2f, 0.5f, 0.9f, 0.8f); b.CylinderZ(new(0, 0.085f, -0.229f), 0.037f, 0.037f, 0.004f, 12);   // lens glint
+                b.Col(Gun); b.BoxC(new(0, 0.055f, -0.04f), new(0.025f, 0.03f, 0.03f)); b.BoxC(new(0, 0.055f, 0.08f), new(0.025f, 0.03f, 0.03f));
+                b.Col(GunLight); b.BoxC(new(0.04f, 0.01f, 0.06f), new(0.03f, 0.012f, 0.012f));           // bolt handle
+                b.Col(0.15f, 0.15f, 0.15f); b.BoxC(new(0, -0.07f, -0.02f), new(0.035f, 0.08f, 0.05f));   // magazine
+                b.Col(Olive); b.Transform = Rx(0.12f) * T(0, -0.035f, 0.34f); b.BoxC(Vector3.Zero, new(0.055f, 0.11f, 0.26f)); b.Transform = Matrix4x4.Identity;
+                if (withHands) Hands(b, 0.14f, -0.28f, -0.04f);
+                muzzle = new(0, 0.01f, -0.88f);
+                break;
+            case Weapons.Railgun:
+            {
+                var body = new Vector3(0.36f, 0.38f, 0.43f);
+                b.Col(body); b.BoxC(new(0, -0.01f, 0.08f), new(0.1f, 0.11f, 0.36f));
+                b.Col(GunLight);
+                b.BoxC(new(0, 0.045f, -0.3f), new(0.07f, 0.02f, 0.52f));    // upper rail
+                b.BoxC(new(0, -0.045f, -0.3f), new(0.07f, 0.02f, 0.52f));   // lower rail
+                b.Col(0.4f, 0.8f, 1f, 1f);
+                b.BoxC(new(0, 0, -0.32f), new(0.006f, 0.05f, 0.48f));       // glowing gap between the rails
+                b.Col(0.28f, 0.3f, 0.36f);
+                for (int i = 0; i < 4; i++) { b.Transform = T(0, 0, -0.1f - i * 0.11f); b.Torus(0.068f, 0.011f, 14, 5); }
+                b.Transform = Matrix4x4.Identity;
+                b.Col(body * 0.7f); b.BoxC(new(0.065f, 0.02f, 0.1f), new(0.03f, 0.07f, 0.18f));   // capacitor pack
+                b.Col(0.4f, 0.8f, 1f, 1f); b.BoxC(new(0.081f, 0.02f, 0.1f), new(0.004f, 0.04f, 0.12f));
+                b.Col(0.12f, 0.12f, 0.14f); b.Transform = Rx(0.25f) * T(0, -0.11f, 0.12f); b.BoxC(Vector3.Zero, new(0.045f, 0.12f, 0.07f)); b.Transform = Matrix4x4.Identity;
+                b.Col(body); b.BoxC(new(0, -0.02f, 0.36f), new(0.06f, 0.08f, 0.2f));
+                if (withHands) Hands(b, 0.12f, -0.2f, -0.08f);
+                muzzle = new(0, 0, -0.58f);
+                break;
+            }
         }
         return b;
     }

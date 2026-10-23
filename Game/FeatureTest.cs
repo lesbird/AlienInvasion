@@ -209,6 +209,42 @@ public static class FeatureTest
             w.Update(1 / 60f, new InputState { Select = -1, Fire = true });
             Check("twin rockets fire two for one", w.Projs.Count(x => x.Kind == ProjKind.Rocket) == 2 && p.Ammo[Weapons.Rockets] == 9);
         }
+        // ---------------- sniper rifle / rail gun ----------------
+        {
+            var w = Make(20, 851, out var p);
+            w.Enemies.Clear();
+            p.Pos = OpenSpot(w);
+            // a direction with a long clear line of fire
+            var dir = Enumerable.Range(0, 16).Select(k => new Vector3(MathF.Cos(k * MathF.Tau / 16), 0, MathF.Sin(k * MathF.Tau / 16)))
+                .OrderByDescending(d => w.L.Raycast(p.Eye, d, 40, out _)).First();
+            void Aim(Vector3 at) { var to = at - p.Eye; p.Yaw = MathF.Atan2(to.X, -to.Z); p.Pitch = MathF.Asin(to.Y / to.Length()); }
+            var fire = new InputState { Select = -1, Fire = true, Zoom = true };
+
+            p.Has[Weapons.Sniper] = true; p.Weapon = p.Pending = Weapons.Sniper; p.Ammo[Weapons.Bullets] = 50;
+            Run(w, 0.5f, new InputState { Select = -1, Zoom = true });
+            Check("sniper scope zooms in on right mouse", p.ZoomT > 0.99f && MathF.Abs(w.ZoomMag - 4) < 0.01f, $"zoomT={p.ZoomT:F2} mag={w.ZoomMag:F2}");
+            var brute = w.SpawnEnemy(EnemyDefs.Brute, p.Pos + dir * 8);
+            Aim(brute.Mid); p.Cooldown = 0;
+            w.Update(1 / 60f, fire);
+            Check("sniper one-shots a brute", brute.Dead && p.Ammo[Weapons.Bullets] == 48, $"hp={brute.Hp:F0} ammo={p.Ammo[Weapons.Bullets]}");
+
+            w.Enemies.Clear();
+            p.Has[Weapons.Railgun] = true; p.Weapon = p.Pending = Weapons.Railgun; p.Ammo[Weapons.Cells] = 100; p.SwitchT = 0;
+            var line = new[] { 3f, 5.5f, 8f }.Select(d => w.SpawnEnemy(d < 5 ? EnemyDefs.Grunt : EnemyDefs.Trooper, p.Pos + dir * d)).ToList();
+            Aim(line[0].Mid); p.Cooldown = 0;
+            w.Update(1 / 60f, fire);
+            Check("rail gun pierces and kills every alien on the line", line.All(e => e.Dead) && p.Ammo[Weapons.Cells] == 90, $"dead={line.Count(e => e.Dead)}/3 cells={p.Ammo[Weapons.Cells]}");
+        }
+        {
+            var w = Make(10, 852, out var p);
+            var boss = w.Boss;
+            p.Pos = NearSpot(w, boss.Pos, 7);
+            p.Has[Weapons.Sniper] = true; p.Weapon = p.Pending = Weapons.Sniper; p.Ammo[Weapons.Bullets] = 50;
+            var to = boss.Mid - p.Eye; p.Yaw = MathF.Atan2(to.X, -to.Z); p.Pitch = MathF.Asin(to.Y / to.Length());
+            float hp0 = boss.Hp;
+            w.Update(1 / 60f, new InputState { Select = -1, Fire = true });
+            Check("bosses survive a sniper round but take its damage", !boss.Dead && hp0 - boss.Hp >= 200, $"{boss.D.Name} hp {hp0:F0} -> {boss.Hp:F0}");
+        }
         // ---------------- gore / feedback ----------------
         {
             var w = Make(6, 901, out var p);

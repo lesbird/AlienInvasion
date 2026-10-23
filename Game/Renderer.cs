@@ -359,6 +359,7 @@ void main(){
     Vector3 cam, camRight, camUp;
     float time, deathAnim;
     public float Fov = 72f;
+    float curFov = 72f;   // Fov narrowed by the sniper scope
     public bool Shadows = true;
     public bool BloomOn = true, AO = true;
     readonly PostFx post;
@@ -988,7 +989,8 @@ void main(){
         cam = eye;
         float aspect = fbW / (float)Math.Max(1, fbH);
         view = Matrix4x4.CreateLookAt(eye, eye + fwd, up);
-        proj = GMath.Perspective(Fov * MathF.PI / 180, aspect, 0.05f, 250f);
+        curFov = 2 * MathF.Atan(MathF.Tan(Fov * MathF.PI / 360) / w.ZoomMag) * 180 / MathF.PI;
+        proj = GMath.Perspective(curFov * MathF.PI / 180, aspect, 0.05f, 250f);
         camRight = Vector3.Normalize(new Vector3(view.M11, view.M21, view.M31));
         camUp = Vector3.Normalize(new Vector3(view.M12, view.M22, view.M32));
 
@@ -1271,7 +1273,7 @@ void main(){
 
         // ---------- first person weapon ----------
         muzzleValid = false;
-        if (!P.Dead && w.VictoryT < 0) DrawViewModel(w, aspect);
+        if (!P.Dead && w.VictoryT < 0 && P.ZoomT < 0.5f) DrawViewModel(w, aspect);
         gl.Disable(EnableCap.Blend);
         gl.DepthRange(0, 1);
         DrawDistortion(w);
@@ -1303,7 +1305,7 @@ void main(){
     {
         var P = w.P;
         float aspect = fbW / (float)Math.Max(1, fbH);
-        float th = MathF.Tan(Fov * MathF.PI / 360);
+        float th = MathF.Tan(curFov * MathF.PI / 360);
         pp.Bloom = BloomOn; pp.AO = AO && vision == 0;
         pp.TanHalf = new Vector2(th * aspect, th);
         pp.Near = 0.05f; pp.Far = 250f;
@@ -2446,12 +2448,14 @@ void main(){
             Weapons.Pistol => new Vector3(0.17f, -0.17f, -0.42f),
             Weapons.RocketLauncher => new Vector3(0.24f, -0.27f, -0.36f),
             Weapons.VoidCannon => new Vector3(0.22f, -0.24f, -0.46f),
+            Weapons.Sniper or Weapons.Railgun => new Vector3(0.19f, -0.2f, -0.36f),
             _ => new Vector3(0.19f, -0.19f, -0.4f)
         };
         float amt = P.BobAmount;
         var bob = new Vector3(MathF.Sin(P.Bob) * 0.014f * amt, -MathF.Abs(MathF.Cos(P.Bob)) * 0.012f * amt, 0);
         var idle = new Vector3(MathF.Sin(time * 1.1f) * 0.003f, MathF.Sin(time * 1.6f) * 0.003f, 0);
-        var off = basePos + bob + idle + new Vector3(0, -P.SwitchT * 0.4f, P.Recoil * 0.3f);
+        // raising the scope pulls the rifle in towards the eye
+        var off = basePos + bob + idle + new Vector3(-basePos.X * P.ZoomT * 2, -P.SwitchT * 0.4f + P.ZoomT * 0.2f, P.Recoil * 0.3f);
         var rot = Matrix4x4.CreateRotationY(0.05f) * Matrix4x4.CreateRotationX(P.Recoil * 0.9f - P.SwitchT * 0.7f);
         if (id == Weapons.Knife)
         {

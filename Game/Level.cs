@@ -489,7 +489,7 @@ public partial class Level
         bool InRoom(int c) => RoomCell[c];
 
         // Guaranteed weapon unlocks on specific levels
-        int newWeapon = Number switch { 2 => Weapons.Shotgun, 4 => Weapons.Rifle, 7 => Weapons.GrenadeLauncher, 11 => Weapons.RocketLauncher, _ => -1 };
+        int newWeapon = Number switch { 2 => Weapons.Shotgun, 4 => Weapons.Rifle, 7 => Weapons.GrenadeLauncher, 9 => Weapons.Sniper, 11 => Weapons.RocketLauncher, 17 => Weapons.Railgun, _ => -1 };
         if (newWeapon >= 0)
             AddItem(PickupKind.Weapon, newWeapon, c => firstRegion.Contains(c) && InRoom(c) && startDist[c] > 6 && startDist[c] < int.MaxValue);
         if (Number >= 5 && rng.NextDouble() < 0.5)
@@ -497,6 +497,8 @@ public partial class Level
             var pool = new List<int> { Weapons.Shotgun, Weapons.Rifle };
             if (Number >= 8) pool.Add(Weapons.GrenadeLauncher);
             if (Number >= 12) pool.Add(Weapons.RocketLauncher);
+            if (Number >= 10) pool.Add(Weapons.Sniper);
+            if (Number >= 18) pool.Add(Weapons.Railgun);
             AddItem(PickupKind.Weapon, pool[rng.Next(pool.Count)], c => InRoom(c) && startDist[c] > 10);
         }
 
