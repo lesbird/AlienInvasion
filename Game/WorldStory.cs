@@ -31,7 +31,7 @@ public partial class World
 
     public ObjectiveDef Objective => Story.For(L.Number).Objective;
     public int ObjDoneCount => ObjDone.Count(d => d);
-    public static float CommDuration(Line l) => l.Text.Length / CommCharsPerSec + 2.2f + l.Text.Length * 0.012f;
+    public static float CommDuration(Line l) => l.Text.Length / CommCharsPerSec + 7.2f + l.Text.Length * 0.012f;
     public static float LogCardDuration(LogEntry e) => MathF.Max(9, e.Text.Length * 0.055f);
     public bool CommBusy => Comm != null || commQueue.Count > 0;
 
