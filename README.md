@@ -7,7 +7,19 @@ of an overrun military bunker and destroy the alien portal at the bottom. A full
 as you descend: radio messages, recovered data pads, scripted events and an epilogue (see [GUIDE.md](GUIDE.md#the-story)).
 Every texture, model, sound effect and music track is generated procedurally at runtime — no asset files.
 Even the app icon is drawn in code (`Game/GameIcon.cs`); `Assets/` only holds the exported copies
-that the app bundle and `.exe` need.
+that the app bundle and `.exe` need, plus the screenshots below.
+
+## Screenshots
+| | |
+|---|---|
+| ![Title screen](Assets/screenshots/title.jpg) | ![Aliens gathered under a rotating red beacon](Assets/screenshots/beacon.jpg) |
+| Title screen, over a live view of the hive | A rotating beacon sweeps red light over a pack of aliens |
+| ![X-ray goggles](Assets/screenshots/xray.jpg) | ![Night vision goggles](Assets/screenshots/nv.jpg) |
+| X-ray goggles: walls turn to blueprint, aliens glow through them | Night vision in the xenobiology lab |
+| ![The Hive Queen and the Warlord](Assets/screenshots/bosses.jpg) | ![The Nest, overgrown with hive growth](Assets/screenshots/hive.jpg) |
+| Two of the mini-bosses: the Hive Queen and the Warlord | B25, The Nest: hive growth spreading over the deep levels |
+| ![Specimen tanks breaking open](Assets/screenshots/tank.jpg) | ![A recovered data pad and a boss warning](Assets/screenshots/comms.jpg) |
+| Dr. Kessler on the radio as the specimen tanks break | A recovered data pad, and the warning card for a boss |
 
 📖 **[Read the full game guide](GUIDE.md)**: controls, every weapon, upgrade, pickup, alien and boss, hazards, events and scoring.
 
