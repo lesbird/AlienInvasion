@@ -261,11 +261,12 @@ public partial class World
 
         var (cx, cy) = Level.CellOf(P.Pos);
         AtElevator = !L.IsFinal && cx == L.ExitX && cy == L.ExitY;
+        elevatorT = AtElevator ? elevatorT + dt : 0;
         if (AtElevator && inp.UsePressed && !ExitReached && Boss != null && !Boss.Dead)
         {
             if (lockedMsgT <= 0) { Message($"ELEVATOR LOCKED - KILL THE {Boss.D.Name}", new Vector4(1f, 0.4f, 0.3f, 1)); Snd.Play("locked", null, 0.8f); lockedMsgT = 1.5f; }
         }
-        else if (AtElevator && inp.UsePressed && !ExitReached)
+        else if (ElevatorReady && inp.UsePressed && !ExitReached)
         {
             ExitReached = true;
             Snd.Play("elevator", null, 0.9f, 1, 0);

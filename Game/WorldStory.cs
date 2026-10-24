@@ -34,6 +34,11 @@ public partial class World
     public static float CommDuration(Line l) => l.Text.Length / CommCharsPerSec + 7.2f + l.Text.Length * 0.012f;
     public static float LogCardDuration(LogEntry e) => MathF.Max(9, e.Text.Length * 0.055f);
     public bool CommBusy => Comm != null || commQueue.Count > 0;
+    /// <summary>The elevator takes the use key after a few seconds inside it, so there's time to start reading
+    /// the radio - straight away while the self-destruct is counting down.</summary>
+    public bool ElevatorReady => AtElevator && (SelfDestructT > 0 || elevatorT >= ElevatorDelay);
+    const float ElevatorDelay = 3;
+    float elevatorT;
 
     void InitStory()
     {
@@ -77,7 +82,14 @@ public partial class World
         if (P.Dead) return;
 
         if (TotalEnemies > 0 && Kills * 2 >= TotalEnemies) Cue(Game.Cue.HalfCleared);
-        if (AtElevator) Cue(Game.Cue.Elevator);
+        if (AtElevator && fired.Add(Game.Cue.Elevator))
+        {
+            // the elevator lines jump the queue so they play next, not behind other chatter
+            var lines = Story.For(L.Number).Beats.Where(b => b.Cue == Game.Cue.Elevator).SelectMany(b => b.Lines).ToList();
+            var rest = commQueue.ToList();
+            commQueue.Clear();
+            foreach (var l in lines.Concat(rest)) commQueue.Enqueue(l);
+        }
 
         // first sight of each alien type
         sightT -= dt;

@@ -55,6 +55,10 @@ wheel/Q/RMB cycle weapon · RMB zoom (sniper rifle) · F flashlight · N night v
     --gentest        generate 600 levels and verify each is solvable
     --bot A B [--god]  headless bot plays levels A..B (keys, doors, combat, elevator/portal)
     --smoke SECS     automated input run, prints stats and exits
+    --perf           log slow frames with a per-section timing breakdown, print frame-time stats on exit
+                     (with --smoke it stays fullscreen; with --bot it times the world update)
+    --perfsync       like --perf, but waits for the GPU after each section so GPU time is attributed
+    --fullres        render the 3D scene at full screen resolution (default caps it at 2560x1440 worth of pixels)
     --seed N         fixed run seed (same level layouts every launch)
     --noshadows      disable shadow maps (lights + flashlight)
     --nobloom        start with bloom off

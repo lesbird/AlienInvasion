@@ -20,6 +20,7 @@ static class Program
                 case "--noshadows": o.NoShadows = true; break;
                 case "--nobloom": o.NoBloom = true; break;
                 case "--noao": o.NoAO = true; break;
+                case "--fullres": o.FullRes = true; break;
                 case "--windowed": o.Windowed = true; break;
                 case "--goggles": o.Goggles = Next(); break;
                 case "--yaw": o.YawOffset = float.Parse(Next(), System.Globalization.CultureInfo.InvariantCulture); break;
@@ -28,6 +29,8 @@ static class Program
                 case "--shotframe": o.ShotFrame = int.Parse(Next()); break;
                 case "--shotmode": o.ShotMode = Next(); break;
                 case "--smoke": o.SmokeSeconds = float.Parse(Next(), System.Globalization.CultureInfo.InvariantCulture); break;
+                case "--perf": AlienInvasion.Engine.Perf.On = true; break;
+                case "--perfsync": AlienInvasion.Engine.Perf.On = true; o.PerfSync = true; break;
                 case "--gentest": GenTest(); return;
                 case "--musictest": MusicTest(Next()); return;
                 case "--secrettest": SecretTest(); return;

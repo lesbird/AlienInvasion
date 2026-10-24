@@ -943,7 +943,7 @@ void main(){
             float dd = v.Length();
             if (dd > FlashFar + 3) continue;
             if (Vector3.Dot(v, dir) < -(e.D.Radius + e.D.Height)) continue;
-            DrawEnemy(e, w, false);
+            DrawCaster(e, w);
         }
         cur = lit;
         gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
@@ -956,6 +956,28 @@ void main(){
         (Vector3.UnitZ, -Vector3.UnitY), (-Vector3.UnitZ, -Vector3.UnitY),
     };
     readonly List<Enemy> casters = new();
+    // shadow passes: each caster's pose is built once per frame, then replayed into every map and face
+    List<(Mesh M, Matrix4x4 W)> record;
+    readonly List<(Mesh M, Matrix4x4 W)> casterParts = new();
+    readonly Dictionary<Enemy, (int Start, int Count)> casterSpans = new();
+
+    void DrawCaster(Enemy e, World w)
+    {
+        if (!casterSpans.TryGetValue(e, out var span))
+        {
+            int start = casterParts.Count;
+            record = casterParts;
+            DrawEnemy(e, w, false);
+            record = null;
+            casterSpans[e] = span = (start, casterParts.Count - start);
+        }
+        for (int i = span.Start; i < span.Start + span.Count; i++)
+        {
+            var (m, wm) = casterParts[i];
+            shadow.Set("uModel", wm);
+            m.Draw();
+        }
+    }
 
     /// <summary>Renders the distance-to-light of every nearby enemy into each shadow light's cube map.</summary>
     void RenderShadowMaps(World w)
@@ -1001,7 +1023,7 @@ void main(){
                     if (depth + r <= 0) continue;
                     var side = v - dir * depth;
                     if (MathF.Max(MathF.Abs(side.X), MathF.Max(MathF.Abs(side.Y), MathF.Abs(side.Z))) - r * 1.42f > depth + r) continue;
-                    DrawEnemy(e, w, false);
+                    DrawCaster(e, w);
                 }
             }
         }
@@ -1010,13 +1032,26 @@ void main(){
     }
 
     // =====================================================================  main render
+    /// <summary>Cap on the 3D scene's pixel count; bigger screens (4K, Retina) render the scene smaller and
+    /// upscale it in the final composite. The HUD is still drawn at full resolution. 0 = no cap.</summary>
+    public int MaxScenePixels = 2560 * 1440;
+
     public void Render(World w, int fbW, int fbH, float t, float dt)
     {
         time = t;
+        int outW = fbW, outH = fbH;
+        if (MaxScenePixels > 0 && fbW * fbH > MaxScenePixels)
+        {
+            float rs = MathF.Sqrt(MaxScenePixels / (float)(fbW * fbH));
+            fbW = Math.Max(1, (int)(fbW * rs));
+            fbH = Math.Max(1, (int)(fbH * rs));
+        }
         var L = w.L;
         var P = w.P;
+        double pt = Perf.Begin();
         if (builtFor != L) BuildLevel(L);
         if (w.PropsDirty) { BuildProps(L); w.PropsDirty = false; }
+        Perf.End("build", pt);
 
         deathAnim = P.Dead ? MathF.Min(1, deathAnim + dt * 1.5f) : 0;
         var eye = P.Eye;
@@ -1044,9 +1079,15 @@ void main(){
         camUp = Vector3.Normalize(new Vector3(view.M12, view.M22, view.M32));
 
         vision = P.NVOn ? 1 : P.XRayOn ? 2 : 0;
+        pt = Perf.Begin();
         GatherLights(w);
+        casterParts.Clear();
+        casterSpans.Clear();
+        Perf.End("lights", pt); pt = Perf.Begin();
         RenderShadowMaps(w);
+        Perf.End($"cubeshadow{shadowCount}", pt); pt = Perf.Begin();
         RenderFlashShadow(w);
+        Perf.End("flashshadow", pt); pt = Perf.Begin();
         post.Begin(fbW, fbH);
         if (lastVision < 0) lastVision = vision;
         if (vision != lastVision) { lastVision = vision; goggleStart = t; }
@@ -1144,6 +1185,7 @@ void main(){
         }
         lit.Set("uTexGlow", 0f);
         lit.Set("uXrayWorld", 0f);
+        Perf.End("level", pt); pt = Perf.Begin();
 
         // pickups
         foreach (var pk in w.Pickups)
@@ -1192,6 +1234,7 @@ void main(){
             }
         }
 
+        Perf.End("opaque", pt); pt = Perf.Begin();
         // ---------- transparent pass ----------
         gl.Enable(EnableCap.Blend);
         gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
@@ -1332,7 +1375,9 @@ void main(){
         Flush(particleTex);
         gl.DepthMask(true);
 
+        Perf.End("transparent", pt); pt = Perf.Begin();
         if (vision == 2) DrawXRay(w);
+        Perf.End("xray", pt); pt = Perf.Begin();
 
         // ---------- first person weapon ----------
         muzzleValid = false;
@@ -1340,8 +1385,10 @@ void main(){
         gl.Disable(EnableCap.Blend);
         gl.DepthRange(0, 1);
         DrawDistortion(w);
+        Perf.End("viewmodel", pt); pt = Perf.Begin();
         SetPostParams(w, fbW, fbH);
-        post.Finish(pp);
+        post.Finish(pp, outW, outH);
+        Perf.End("post", pt);
     }
 
     /// <summary>Colour grade per area: (shadow lift, gain, saturation, contrast).</summary>
@@ -1706,6 +1753,7 @@ void main(){
             if (pendingLimb is var (a, b, th)) { captureLimbs.Add((Vector3.Transform(a, root), Vector3.Transform(b, root), th)); pendingLimb = null; }
             return;
         }
+        if (record != null) { record.Add((m, local * root)); return; }
         cur.Set("uModel", local * root);
         if (cur == lit && hotTint is Vector4 h)
             lit.Set("uTint", new Vector4(h.X, h.Y, h.Z, MathF.Max(alpha, h.W)));

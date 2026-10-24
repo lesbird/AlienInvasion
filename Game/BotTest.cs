@@ -9,6 +9,9 @@ namespace AlienInvasion.Game;
 /// </summary>
 public static class BotTest
 {
+    static double updTotal, updMax;
+    static int updFrames;
+
     public static void Run(int from, int to, int seed, bool god)
     {
         var player = new Player();
@@ -83,7 +86,14 @@ public static class BotTest
                     inp.Strafe = Vector3.Dot(moveDir, player.Right);
                 }
                 inp.UsePressed = w.AtElevator;
+                long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
                 w.Update(dt, inp);
+                double ums = System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+                if (Perf.On)
+                {
+                    updTotal += ums; updFrames++; updMax = Math.Max(updMax, ums);
+                    if (ums > 3 && t > 1) Console.WriteLine($"   PERF update {ums:F1}ms t={t:F1}s alive={w.Enemies.Count(e => !e.Dead)} projs={w.Projs.Count} parts={w.Particles.Count} lights={w.DynLights.Count}");
+                }
 
                 if (player.Health < lastHp) dmgTaken += lastHp - player.Health;
                 lastHp = player.Health;
@@ -115,6 +125,7 @@ public static class BotTest
             }
             if (level.IsFinal) Console.WriteLine($"   portal hp={w.PortalE.Hp:F0} inv={w.PortalE.Invulnerable} pylons={w.Enemies.Count(e => e.Type == EnemyDefs.Pylon && !e.Dead)} pos={player.Pos} portalPos={w.PortalE.Pos} victoryT={w.VictoryT}");
             if (ok) passed++;
+            if (Perf.On) { Console.WriteLine($"   PERF L{n} update avg={updTotal / Math.Max(1, updFrames):F3}ms max={updMax:F1}ms"); updTotal = updMax = 0; updFrames = 0; }
             Console.WriteLine($"L{n,2}: {(ok ? "OK  " : "FAIL")} time={t,5:F0}s kills={w.Kills,2}/{w.TotalEnemies,-2} dmgTaken={dmgTaken,5:F0} deaths={deaths} keys={string.Join(",", Enumerable.Range(0, level.LockCount).Select(j => player.Keys[level.LockColor[j]] ? Level.KeyNames[level.LockColor[j]][0].ToString() : "-"))} weapon={Weapons.All[player.Weapon].Name}");
             player.Health = MathF.Max(player.Health, 100);
         }

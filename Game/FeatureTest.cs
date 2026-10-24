@@ -171,6 +171,22 @@ public static class FeatureTest
             Run(w, armed + 1);
             Check("self-destruct arms with the last key and kills a slow player", armed > 0 && p.Dead, $"timer={armed:F0}s dead={p.Dead}");
         }
+        // ---------------- elevator waits for the radio ----------------
+        {
+            var w = Make(1, 650, out var p);
+            w.God = true;
+            var use = new InputState { Select = -1, UsePressed = true };
+            var idle = new InputState { Select = -1 };
+            Run(w, 2);
+            p.Pos = Level.Center(w.L.ExitX, w.L.ExitY);
+            w.Update(1 / 60f, use);
+            w.Update(1 / 60f, use);
+            bool early = w.ExitReached, talked = w.CommBusy;
+            float waited = 0;
+            for (; waited < 60 && !w.ElevatorReady; waited += 1 / 60f) { p.Pos = Level.Center(w.L.ExitX, w.L.ExitY); w.Update(1 / 60f, idle); }
+            w.Update(1 / 60f, use);
+            Check("elevator ignores E for its first few seconds", !early && talked && w.ExitReached, $"early={early} radio={talked} waited={waited:F1}s exit={w.ExitReached}");
+        }
         // ---------------- bosses ----------------
         foreach (int lvl in new[] { 5, 10, 15 })
         {
@@ -188,8 +204,11 @@ public static class FeatureTest
             Run(w, 0.5f);
             int drops = w.Pickups.Count - pk0;
             p.Pos = Level.Center(w.L.ExitX, w.L.ExitY);
+            var idle = new InputState { Select = -1 };
+            float waited = 0;
+            for (; waited < 60 && !w.ElevatorReady; waited += 1 / 60f) { p.Pos = Level.Center(w.L.ExitX, w.L.ExitY); w.Update(1 / 60f, idle); }   // let the radio lines play out
             w.Update(1 / 60f, use);
-            Check($"{boss.D.Name} locks the elevator, drops loot, unlocks it", locked && drops >= 4 && w.ExitReached, $"locked={locked} drops={drops} exit={w.ExitReached} minions={w.Enemies.Count(e => !e.Dead && !e.D.Boss)}");
+            Check($"{boss.D.Name} locks the elevator, drops loot, unlocks it", locked && drops >= 4 && w.ExitReached, $"locked={locked} drops={drops} exit={w.ExitReached} minions={w.Enemies.Count(e => !e.Dead && !e.D.Boss)} waited={waited:F0}s");
         }
         // ---------------- weapon upgrades ----------------
         {

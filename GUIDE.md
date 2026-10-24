@@ -137,7 +137,8 @@ Finish the campaign for the epilogue and credits. The story continues in a part 
 ## How a sublevel works
 
 - You arrive in a **start room** and must reach the **exit elevator** — an alcove lit in green.
-  Stand in it and press **E** to descend.
+  Stand in it and press **E** to descend. The prompt appears after 3 seconds, so there's time to
+  catch the radio (straight away during a self-destruct countdown).
 - The way to the elevator is blocked by **locked security doors** (1 on the first floor, up to 4
   deep down), colour-coded **red, blue, yellow and green**. Each needs the matching **keycard**,
   which always lies in the part of the level you can already reach.

@@ -26,11 +26,12 @@ public class Options
     public int ShotFrame = 90;
     public string ShotMode = "play";
     public int Seed = -1;
-    public bool NoShadows, NoBloom, NoAO, Windowed;
+    public bool NoShadows, NoBloom, NoAO, Windowed, FullRes;
     public string Goggles = "";
     public float YawOffset;
     public float SmokeSeconds;
     public int Weapon = -1;
+    public bool PerfSync;
 }
 
 public partial class GameApp
@@ -90,13 +91,13 @@ public partial class GameApp
             VSync = opt.ShotFile == null && opt.SmokeSeconds <= 0,
             API = new GraphicsAPI(ContextAPI.OpenGL, ContextProfile.Core, ContextFlags.ForwardCompatible, new APIVersion(3, 3)),
             PreferredDepthBufferBits = 24,
-            Samples = 4,
+            Samples = 0,   // the 3D scene has its own multisampled target (PostFx); the window only gets the composite and HUD
         };
         window = Window.Create(wo);
         window.Load += () => { try { OnLoad(); } catch (Exception e) { Console.WriteLine(e); throw; } };
         window.Update += d => { try { OnUpdate(d); } catch (Exception e) { Console.WriteLine(e); window.Close(); } };
         window.Render += d => { try { OnRender(d); } catch (Exception e) { Console.WriteLine(e); window.Close(); } };
-        window.Closing += () => snd.Dispose();
+        window.Closing += () => { Perf.Report(); snd.Dispose(); };
         window.Run();
         window.Dispose();
     }
@@ -105,6 +106,7 @@ public partial class GameApp
     {
         gl = window.CreateOpenGL();
         Console.WriteLine($"OpenGL: {gl.GetStringS(StringName.Version)} / {gl.GetStringS(StringName.Renderer)}");
+        if (opt.PerfSync) Perf.Sync = gl.Finish;
         // title bar / taskbar icon (macOS takes the Dock icon from the app bundle instead)
         if (!OperatingSystem.IsMacOS())
         {
@@ -112,7 +114,7 @@ public partial class GameApp
             catch (Exception e) { Console.WriteLine($"window icon: {e.Message}"); }
         }
         // fullscreen by default; screenshots and smoke tests stay in a fixed 1280x720 window
-        if (!opt.Windowed && opt.ShotFile == null && opt.SmokeSeconds <= 0) window.WindowState = WindowState.Fullscreen;
+        if (!opt.Windowed && opt.ShotFile == null && (opt.SmokeSeconds <= 0 || Perf.On)) window.WindowState = WindowState.Fullscreen;
         input = window.CreateInput();
         kb = input.Keyboards[0];
         mouse = input.Mice[0];
@@ -129,7 +131,7 @@ public partial class GameApp
         };
         mouse.Scroll += (_, w) => scroll += w.Y;
 
-        renderer = new Renderer(gl) { Shadows = !opt.NoShadows, BloomOn = !opt.NoBloom, AO = !opt.NoAO };
+        renderer = new Renderer(gl) { Shadows = !opt.NoShadows, BloomOn = !opt.NoBloom, AO = !opt.NoAO, MaxScenePixels = opt.FullRes ? 0 : 2560 * 1440 };
         Scoring.ReadOnly = opt.ShotFile != null || opt.SmokeSeconds > 0;
         ui = new Renderer2D(gl);
         snd.Init();
@@ -503,6 +505,8 @@ public partial class GameApp
 
     void OnUpdate(double dtd)
     {
+        Perf.Frame();
+        double perfT = Perf.Begin();
         float dt = MathF.Min((float)dtd, 0.05f);
         time += dt;
         stateT += dt;
@@ -567,6 +571,7 @@ public partial class GameApp
             window.Close();
         }
 
+        Perf.End("update", perfT);
         pressed.Clear();
         mouseLPressed = mouseRPressed = false;
         mdx = mdy = 0;
@@ -664,7 +669,9 @@ public partial class GameApp
         if (opt.ShotMode == "fire" && opt.ShotFrame - frame is > 0 and < 8) inp.Fire = true;
         if (opt.ShotMode.EndsWith("gallery") || opt.ShotMode.StartsWith("beacon") || opt.ShotMode == "behindwall" || opt.ShotMode == "barrels" || opt.ShotMode.StartsWith("secret")) { world.Time += dt; return; }
         world.TickRealTime(dt);
+        double perfW = Perf.Begin();
         world.Update(dt * world.TimeScale, inp);
+        Perf.End("world", perfW);
 
         if (player.Dead)
         {
@@ -712,13 +719,17 @@ public partial class GameApp
 
         if (state is GameState.Title or GameState.Controls or GameState.Briefing or GameState.Credits)
         {
+            if (Perf.On) Perf.Context = state.ToString();
             renderer.Render(titleWorld, W, H, time, dt);
             DrawTitle(W, H);
         }
         else
         {
+            if (Perf.On && world != null) Perf.Context = $"{state} {W}x{H} L{levelNum} enemies={world.Enemies.Count(e => !e.Dead)} parts={world.Particles.Count}" + (player.XRayOn ? " xray" : player.NVOn ? " nv" : "");
             renderer.Render(world, W, H, time, dt);
+            double perfT = Perf.Begin();
             DrawHud(W, H);
+            Perf.End("hud", perfT);
         }
 
         if (opt.ShotFile != null && frame == opt.ShotFrame)
@@ -1052,7 +1063,7 @@ public partial class GameApp
             float a = MathF.Min(1, world.MsgT);
             ui.Text(world.Msg, W / 2f, H * 0.66f, 2.8f * s, world.MsgColor * new Vector4(1, 1, 1, a), 1);
         }
-        if (world.AtElevator && state == GameState.Playing)
+        if (world.ElevatorReady && state == GameState.Playing)
             ui.Text("PRESS E TO TAKE THE ELEVATOR DOWN", W / 2f, H * 0.58f, 3 * s, C(0.4f, 1f, 0.5f, 0.7f + 0.3f * MathF.Sin(time * 6)), 1);
 
         if (state is GameState.Playing or GameState.Paused) DrawStoryHud(W, H, s, barH);

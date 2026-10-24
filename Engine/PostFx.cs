@@ -287,8 +287,8 @@ void main(){
         gl.BlendFunc(BlendingFactor.One, BlendingFactor.One);
     }
 
-    /// <summary>Bloom, SSAO and the final composite into the default framebuffer.</summary>
-    public void Finish(PostParams p)
+    /// <summary>Bloom, SSAO and the final composite into the default framebuffer, scaled up to outW x outH.</summary>
+    public void Finish(PostParams p, int outW, int outH)
     {
         gl.Disable(EnableCap.DepthTest);
         gl.Disable(EnableCap.Blend);
@@ -322,7 +322,7 @@ void main(){
         }
 
         gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-        gl.Viewport(0, 0, (uint)w, (uint)h);
+        gl.Viewport(0, 0, (uint)outW, (uint)outH);
         composite.Use();
         composite.Set("uScene", 0); composite.Set("uB0", 1); composite.Set("uB1", 2); composite.Set("uB2", 3);
         composite.Set("uAO", 4); composite.Set("uDist", 5); composite.Set("uVM", 6);
